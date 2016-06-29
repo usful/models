@@ -1,0 +1,25 @@
+{
+  "name": "models",
+  "version": "0.0.1",
+  "description": "Models",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/usful/models.git"
+  },
+  "keywords": [
+    "models",
+    "orm",
+    "javascript",
+    "react"
+  ],
+  "author": "Clinton Robinson",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/usful/models/issues"
+  },
+  "homepage": "https://github.com/usful/models#readme"
+}
