@@ -1,8 +1,8 @@
 "use strict";
 
-import compose from '../../helpers/compose';
+import compose from './lib/compose';
 import immutableBinding from './immutableBinding';
-import guid from '../../helpers/guid';
+import guid from './lib/guid';
 import generateChangeSet from './generateChangeSet';
 
 import ModelTypes from './ModelTypes'
