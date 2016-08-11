@@ -3,9 +3,6 @@ let path = require('path');
 
 module.exports = {
   entry: [
-    // Set up an ES6-ish environment
-    'babel-polyfill',
-
     // Add your application's scripts below
     './src/Model.js',
   ],
