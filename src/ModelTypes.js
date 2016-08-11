@@ -98,17 +98,23 @@ export default {
   getTypes: function() {
     // Compiles an array of all the ModelType set on this object
     let types = [];
+
     for (let type in this) {
       // Go through each property in this object
       // Only pull out fully defined model types
-      if (!this.hasOwnProperty(type))
+      if (!this.hasOwnProperty(type)) {
         continue;
+      }
 
       let val = this[type];
-      if (val === Function)
+
+      if (val === Function) {
         continue;
-      if (val.setter && val.check)
+      }
+
+      if (val.setter && val.check) {
         types.push(val);
+      }
     }
 
     return types;
@@ -118,14 +124,12 @@ export default {
     return this.getTypes().some( type => type.check(val) );
   },
   getType: function (val) {
-    return this.getTypes().find( type => type.check(val));
+    return this.getTypes().find( type => type.check(val) );
   },
   getTypeSetter: function (val, isArray) {
     // Get the setter for a specific type
     if (this.isValidType(val)) {
-      let modelType = this.getType(val);
-      if (modelType)
-        return modelType.setter(isArray);
+      return this.getType(val).setter(isArray);
     }
     else {
       console.warn('Generic setter used on model type. Check model definitions.');

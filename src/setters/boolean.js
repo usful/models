@@ -5,7 +5,7 @@ export default function setter(key, def) {
     if (nullCheck(this, key, val)) return;
 
     let next = !!val;
-    this.__changing(key, next);
     this.__data[key] = next;
+    this.__onChanged(key, next);
   };
 }

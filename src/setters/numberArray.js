@@ -7,12 +7,12 @@ export default function setter(key, def) {
 
     for (let i=0; i<val.length; i++) {
       if (val[i] !== undefined && val[i] !== null && val[i].constructor !== Number)
-        val[i] = Number.parseFloat(val[i]);
+        val[i] = parseFloat(val[i]);
     }
 
     val = ObservableArray.setup(this, key, val);
 
-    this.__changing(key, val);
     this.__data[key] = val;
+    this.__onChanged(key, val);
   };
 }

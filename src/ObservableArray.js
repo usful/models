@@ -3,6 +3,8 @@ const ADD = 'Add';
 const REMOVE = 'Remove';
 const SET = 'Set';
 
+import guid from './lib/guid';
+
 class ObservableArrayIterator {
   constructor(array) {
     this.i = 0;
@@ -21,6 +23,8 @@ class ObservableArrayIterator {
 
 export default class ObservableArray {
   constructor(items) {
+    this.__listeners = [];
+
     this._array = Array.isArray(items) ? items : new Array(items);
 
     for (let i = 0; i < this._array.length; i++) {
@@ -55,12 +59,22 @@ export default class ObservableArray {
   static EVENT_REMOVE = REMOVE;
   static EVENT_SET = SET;
 
+  /**
+   * TODO: This doesn't belong in the ObservableArray since its specific to Models.js, it should be moved to a helper
+   * function.
+   *
+   * @param obj
+   * @param key
+   * @param val
+   * @returns {*}
+   */
   static setup(obj, key, val) {
     if (!ObservableArray.isObservableArray(val)) {
       val = new ObservableArray(val);
     }
 
-    val._handler = (event) => obj.__changing(key, event);
+    //Hookup the onChanged event
+    val.addListener(event => obj.__onChanged(key, val, event));
 
     return val;
   }
@@ -73,9 +87,31 @@ export default class ObservableArray {
     return new ObservableArrayIterator(this);
   }
 
+  addListener(cb) {
+    let listener = {
+      id: guid(),
+      cb: cb
+    };
+
+    this.__listeners.push(listener);
+
+    return listener.id;
+  }
+
+  removeListener(id) {
+    if (!id) return null;
+
+    let ix = this.__listeners.findIndex(listener => listener.id === id);
+
+    return (ix > -1) ? this.__listeners.splice(ix, 1) : null;
+  };
+
+  removeAllListeners() {
+    this.__listeners = [];
+  }
 
   raiseEvent(event) {
-    if (this._handler) this._handler(event);
+    this.__listeners.forEach(listener => listener.cb(event));
   }
 
   get length() {
@@ -279,7 +315,12 @@ export default class ObservableArray {
     return this._array.findIndex(fn);
   }
 
+  /**
+   * Returns an new plain Array with the contents that were in this ObservableArray instance.
+   *
+   * @returns {array}
+   */
   toArray() {
-    return this._array;
+    return [].concat(this._array);
   }
 }

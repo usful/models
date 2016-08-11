@@ -6,13 +6,13 @@ export default function setter(key, def) {
     if (nullCheck(this, key, val)) return;
 
     for (let i=0; i<val.length; i++) {
-      if (val[i] !== undefined && val[i] !== null && val[i].constructor !== Date)
-        val[i] = new Date(val[i]);
+      if (val[i] !== undefined && val[i] !== null)
+        val[i] = !!val[i];
     }
 
-    val = ObservableArray.setup(this, key, val);
+    let next = ObservableArray.setup(this, key, val);
 
-    this.__changing(key, val);
-    this.__data[key] = val;
+    this.__data[key] = next;
+    this.__onChanged(key, next);
   };
 }

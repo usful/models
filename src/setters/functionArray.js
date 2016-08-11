@@ -10,9 +10,9 @@ export default function setter(key, def) {
     //It is assumed that any function will account for this.
     let next = Array.prototype.map.call(val, item => this.constructor.def[key].type(item));
 
-    val = ObservableArray.setup(this, key, next);
+    next = ObservableArray.setup(this, key, next);
 
-    this.__changing(key, next);
     this.__data[key] = next;
+    this.__onChanged(key, next);
   };
 }

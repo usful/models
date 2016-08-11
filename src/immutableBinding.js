@@ -41,7 +41,7 @@ export default function immutableBinding () {
     //by using the bind getter on each model.  The model instance will figure out if its changed or not
     //and recursively call itself.
     else if (def.isArray && def.type.isModel) {
-      bind[prop] = val && val._array ? val._array.map.call(val, (item) => item.bind) : null;
+      bind[prop] = val && val._array ? val._array.map.call(val, (item) => item ? item.bind : null) : null;
     }
 
     //An array of other things have changed.  Create a new array instance, but use the data in data.
@@ -68,6 +68,8 @@ export default function immutableBinding () {
 
   //Store the last values for this instance.
   if (this.constructor.historyEnabled && this.__bind && (Date.now() - this.__bind.__start) > this.constructor.historyInterval) {
+    //TODO: does it make sense to use an interval here?  The interval should be used on the notify on the model itself.
+    //TODO: I actually think this entire history functionality should be moved out of this immutable binding piece anyways.
     this.__bind.__end = Date.now();
     this.__history.push(this.__bind);
   } 
