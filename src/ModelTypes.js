@@ -15,12 +15,6 @@ import functionArraySetter from './setters/functionArray';
 import functionSetter from './setters/function';
 import genericSetter from './setters/generic';
 
-/*
- * Custom Types 
- */
-import ModelReference from './types/ModelReference';
-import LocaleString from './types/LocaleString';
-
 export default {
   /*
   * BEFORE MAKING ANY CHANGES 
@@ -36,15 +30,6 @@ export default {
     },
     check: function (val) {
       return Boolean(val) && Boolean(val.isModel);
-    }
-  },
-  ModelReference: {
-    // ModelReferences will pass the Model check so this is redundant
-    setter: function (isArray) {
-      return isArray ? functionArraySetter : functionSetter;
-    },
-    check: function (val) {
-      return Boolean(val) && Boolean(val === ModelReference);
     }
   },
   Date: {
@@ -71,14 +56,6 @@ export default {
       return Boolean(val) && Boolean(val === String);
     }
   },
-  LocaleString: {
-    setter: function (isArray) {
-      return isArray ? functionArraySetter : functionSetter;
-    },
-    check: function (val) {
-      return Boolean(val) && Boolean(val === LocaleString);
-    }
-  },
   Number: {
     setter: function (isArray) {
       return isArray ? numberArraySetter : numberSetter;
@@ -93,6 +70,14 @@ export default {
     },
     check: function(val) {
       return Boolean(val) && Boolean(val === Object);
+    }
+  },
+  Function: {
+    setter: function() {
+      return genericSetter;
+    },
+    check: function(val) {
+      return true;
     }
   },
   getTypes: function() {

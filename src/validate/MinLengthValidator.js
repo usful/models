@@ -9,6 +9,9 @@ export default function(minLength, message = null) {
     validate: function(value) {
       return value && value.length >= minLength;
     },
-    message: message
+    message: message,
+    name: 'MinLengthValidator',
+    args: ['minLength'],
+    minLength: minLength
   };
 };

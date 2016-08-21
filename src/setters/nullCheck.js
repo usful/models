@@ -1,6 +1,8 @@
-export default function (obj, key, val) {
+export default function (obj, key, val, def) {
   if (val === null || val === undefined) {
-    obj.__data[key] = val;
+
+    //Check to see if this def specifies an auto value.
+    obj.__data[key] = (def.auto !== undefined) ? def.auto : val;
     obj.__onChanged(key, val);
     return true;
   }

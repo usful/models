@@ -1,33 +1,36 @@
-let webpack = require('webpack');
-let path = require('path');
+// webpack.config.js
+var webpack = require('webpack');
+var path = require('path');
+var libraryName = 'Models';
+var outputFile = libraryName + '.js';
 
-module.exports = {
-  entry: [
-    // Add your application's scripts below
-    './src/Model.js',
-  ],
+var config = {
+  entry: __dirname + '/src/Model.js',
+  devtool: 'source-map',
   output: {
-    filename: './index.js'
+    path: __dirname + '/dist',
+    filename: outputFile,
+    library: libraryName,
+    libraryTarget: 'umd',
+    umdNamedDefine: true
   },
   module: {
     loaders: [
       {
-        loader: "babel-loader",
-
-        // Skip any files outside of your project's `src` directory
-        include: [
-          path.resolve(__dirname, "src"),
-        ],
-
-        // Only run `.js` and `.jsx` files through Babel
-        test: /\.jsx?$/,
-
-        // Options to configure babel with
+        test: /(\.jsx|\.js)$/,
+        loader: 'babel',
+        exclude: /(node_modules|bower_components)/,
         query: {
-          plugins: ['transform-runtime'],
-          presets: ['es2015', 'stage-0', 'react'],
+          presets: ['es2015', 'stage-0', 'react']
         }
-      },
+      }
     ]
-  }
-}
+  },
+  resolve: {
+    root: path.resolve('./src'),
+    extensions: ['', '.js']
+  },
+  watch: true
+};
+
+module.exports = config;

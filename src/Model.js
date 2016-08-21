@@ -1,12 +1,14 @@
 "use strict";
 
+import {EventEmitter} from 'fbemitter';
+
 import compose from './lib/compose';
 import immutableBinding from './immutableBinding';
 import guid from './lib/guid';
+import checkPropertyNames from './lib/checkPropertyNames';
+
 import generateChangeSet from './generateChangeSet';
 
-//TODO: Remove once v3.0.0 API is rolled out to production.
-import generateChangeSetV0 from './generateChangeSetV0';
 import ModelTypes from './ModelTypes'
 import Validation from './Validation'
 
@@ -17,6 +19,10 @@ import Validation from './Validation'
 function Model() {
   return Model.create.apply(this, arguments);
 }
+
+Model.Validation = Validation;
+
+Model.guid = guid;
 
 /**
  * Quick easy check to see if a constructor is a model or not.
@@ -30,8 +36,22 @@ Model.isModel = true;
  */
 Model.models = {};
 
+/**
+ * Creates a new Model.
+ *
+ * @param name
+ * @param properties
+ * @param methods
+ * @param statics
+ * @returns {model}
+ */
 Model.create = function(name, properties, methods, statics) {
   let model = function (data) {
+    /**
+     * An event emitter.
+     */
+    this.__emitter = new EventEmitter();
+
     /**
      * Has the data changed since the last stored state?
      * @type {boolean}
@@ -45,6 +65,13 @@ Model.create = function(name, properties, methods, statics) {
      * @private
      */
     this.__propChanged = {};
+
+    /**
+     * Which properties have changed since the last notify.
+     * @type {{}}
+     * @private
+     */
+    this.__propShouldNotify = {};
 
     /**
      * Is the object currently constructing.
@@ -82,18 +109,6 @@ Model.create = function(name, properties, methods, statics) {
     this.__messages = {};
 
     /**
-     *  External validation interface
-     *  @type {{}}
-     */
-    this.validations = new this._Validations(this);
-
-    /**
-     *  External validation messages interface
-     *  @type {{}}
-     */
-    this.messages = new this._Messages(this);
-
-    /**
      * Does the bind immutable need to be rebuilt. Different then __changed used for pending changes.
      * @type {boolean}
      * @private
@@ -106,13 +121,6 @@ Model.create = function(name, properties, methods, statics) {
      * @private
      */
     this.__bind = null;
-
-    /**
-     * An array of Components that have subscribed to updates of this instance of this Model.
-     * @type {Array}
-     * @private
-     */
-    this.__listeners = [];
 
     /**
      * A reference to the parent object that contains this instance of this Model.
@@ -132,8 +140,17 @@ Model.create = function(name, properties, methods, statics) {
 
     this.__guid = guid();
 
+    //Set any initial values.
+    for (let key of this.constructor.def.keys) {
+      if (this.constructor.def[key].initial) {
+        this[key] = this.constructor.def[key].initial;
+      }
+    }
+
     //If data was passed when this instance was instantinated, hydrate that data into the model.
-    if (data) this.hydrate(data);
+    if (data) {
+      this.hydrate(data);
+    }
 
     //Force the immutable bind object to come into existence and also store it for generating change sets.
     this.__lastBindState = this.bind;
@@ -143,12 +160,11 @@ Model.create = function(name, properties, methods, statics) {
     return this;
   };
 
-  if (!Object.keys(Model.models).includes(name)) {
-    Model.models[name] = model;
-  }
-  else {
+  if (Object.keys(Model.models).includes(name)) {
     throw new Error(`Model ${name} has already been defined`);
   }
+
+  Model.models[name] = model;
 
   /**
    * Quick easy check to see if this JavaScript Object is a Model.
@@ -165,21 +181,13 @@ Model.create = function(name, properties, methods, statics) {
   model.historyInterval = 0;
   //Notify interval can be tweaked for performance tuning.
   model.notifyInterval = 0;
+
   /**
    * Static method to generate a changeSet for instances of this model.
    * @type {function(this:model)}
    */
   model.generateChangeSet = function (bind1, bind2) {
     return generateChangeSet(this.def, bind1, bind2, true);
-  };
-
-  /**
-   * Static method to generate a changeSet for instances of this model.
-   * @type {function(this:model)}
-   * @deprecated since v3.0.0+
-   */
-  model.generateChangeSetV0 = function (bind1, bind2) {
-    return generateChangeSetV0(this.def, bind1, bind2);
   };
 
   /**
@@ -201,15 +209,6 @@ Model.create = function(name, properties, methods, statics) {
   };
 
   /**
-   * Generate a changeSet for this instance of this model.
-   * @type {function(this:model)}
-   * @deprecated since v3.0.0+
-   */
-  model.prototype.generateChangeSetV0 = function () {
-    return this.constructor.generateChangeSetV0(this.__lastBindState, this.bind);
-  };
-
-  /**
    * Triggered when a property has changed on this instance
    *
    * @param key The property that has changed
@@ -218,37 +217,38 @@ Model.create = function(name, properties, methods, statics) {
    * @private
    */
   model.prototype.__onChanged = function (key, val, event) {
+    let def = this.constructor.def[key];
+
     //Virtuals should not trigger the changed flag, as noted above, changed indicates changes that effect data have occurred.
-    if (!this.constructor.def[key].virtual) {
+    if (!def.virtual) {
       this.__changed = true;
+    }
+
+    //Sometimes the dev may set notify to false, this short circuits any change notification.
+    if (!def.notify) {
+      return;
     }
 
     this.__rebuildBind = true;
     this.__propChanged[key] = true;
+    this.__propShouldNotify[key] = true;
 
     if (this.__constructing) return;
 
-    /* If a notification is already pending, then another onChanged has already walked up this path. This implies:
-    *   1) You don't need to continue notifying the parent models since that's already been done by someone else
-    *   2) If this is a circular chain somehow, the first time you visit this node on the graph scheduled the notification
-    */
-    let notificationsPending = this.__isNotifying;
-
-    if (!notificationsPending) {
+    if (!this.__isNotifying) {
       if (this.constructor.notifyInterval > 0) {
         //notifyInterval can be used for specific performance tuning.
-        this.__isNotifying = setTimeout(this.__notify.bind(this), this.constructor.notifyInterval)
+        this.__isNotifying = setTimeout(this.__notify.bind(this), this.constructor.notifyInterval);
       } else {
         //setImmediate will pool notifying until the end of the execution cycle.
         this.__isNotifying = setImmediate(this.__notify.bind(this));
       }
     }
 
-    //Propagate up to parents if it needs to be propogated
+    //Propagate up to parents if it needs to be propagated
     if (this.__parent) {
       this.__parent.__onChanged(this.__parentKey, this, event);
     }
-
   };
 
   /**
@@ -256,14 +256,15 @@ Model.create = function(name, properties, methods, statics) {
    * @private
    */
   model.prototype.__notify = function () {
-    //Iterate thru all the hooked up listeners for this model.
-    this.__listeners.forEach(listener => {
-      //If a callback was included, call it with this model.
-      if (listener.cb) {
-        listener.cb(this);
-      }
-    });
+    this.emit('changed', this);
 
+    for (let key of this.constructor.def.keys) {
+      if (this.__propShouldNotify[key]) {
+        this.emit(`${key}Changed`, this);
+      }
+    }
+
+    this.__propShouldNotify = {};
     this.__isNotifying = null;
   };
 
@@ -282,33 +283,7 @@ Model.create = function(name, properties, methods, statics) {
      * Store all the property keys for faster iteration later.
      * @type {[]} keys
      */
-    keys: [],
-    /**
-     * Store the model validator if one was supplied.
-     * @type {function} validator
-     */
-    modelValidator: function() {return true;}
-  };
-
-  /**
-   * Provides a public interface for validations.
-   * @type {Class}
-   * @private
-   */
-  // Bind the external validation interface
-  // Do this using an inner class defined per model
-  model.prototype._Validations = function (modelInstance) {
-    this.__modelInstance = modelInstance;
-    Object.defineProperty(this, '__modelInstance', {
-      enumerable: false
-    });
-  };
-
-  model.prototype._Messages = function (modelInstance) {
-    this.__modelInstance = modelInstance;
-    Object.defineProperty(this, '__modelInstance', {
-      enumerable: false
-    });
+    keys: []
   };
 
   /**
@@ -319,26 +294,20 @@ Model.create = function(name, properties, methods, statics) {
   model.prototype.validate = function (keyToCheck) {
     //TODO: cache validation since last change.  There is no need to re-run this validation unless something has changed.
 
-    let keys = this.constructor.def.keys;
-
     if (keyToCheck) {
-      if (keys.includes(keyToCheck)) {
-        return this.constructor.def[keyToCheck].validate.call(this);
-      }
-
-      throw new Error('Key "' + keyToCheck + '" does not exist on model ' + this.constructor.name);
+      return this.constructor.def[keyToCheck].validate.call(this);
     }
 
     let state = true;
 
-    for (let key of keys) {
-      let def = this.constructor.def[key];
-      state = ( state && def.validate.call(this) ); // if ANY return false it's false
+    for (let key of this.constructor.def.keys) {
+      // if ANY return false it's false
+      state = state && this.constructor.def[key].validate.call(this);
     }
 
-    let modelState = this.constructor.def.modelValidator.call(this);
+    //let modelState = this.constructor.def.modelValidator.call(this);
 
-    return ( state && modelState );
+    return state;
   };
 
   /**
@@ -352,18 +321,12 @@ Model.create = function(name, properties, methods, statics) {
     return this.validate.call(this, key);
   };
 
-
   /**
-   * Remove a callback from listening for changes.
-   * @param idToRemove The ID of the listener to remove
-   * @returns {Array.<*>}
+   * Removes all event listeners on this model.
+   * @returns {*}
    */
-  model.prototype.removeListener = function (idToRemove) {
-    if (!idToRemove) return null;
-
-    let ix = this.__listeners.findIndex(listener => listener.guid === idToRemove);
-
-    return (ix > -1) ? this.__listeners.splice(ix, 1) : null;
+  model.prototype.removeAllListeners = function() {
+    return this.__emitter.removeAllListeners();
   };
 
   /**
@@ -371,11 +334,26 @@ Model.create = function(name, properties, methods, statics) {
    * @param [cb] {Function} a cb for when this model is updated.
    * @returns {String}
    */
-  model.prototype.addListener = function (cb) {
-    if (!cb) return null;
-    let listener = {guid: guid(), cb: cb};
-    this.__listeners.push(listener);
-    return listener.guid;
+  model.prototype.addListener = function (cb, key) {
+    //TODO: fix this since it is kind of weird now.
+    if (typeof cb === 'function') {
+      return this.__emitter.addListener(key ? `${key}Changed` : 'changed', cb);
+    } else if (typeof cb === 'string') {
+      return this.__emitter.addListener(cb, key);
+    }
+  };
+
+  /**
+   * Adds a callback to be executed when this model is updated that is removed immediatley after it is called.
+   * @param [cb] {Function} a cb for when this model is updated.
+   * @returns {String}
+   */
+  model.prototype.addOnce = function (cb, key) {
+    return this.__emitter.once(key ? `${key}Changed` : 'changed', cb);
+  };
+
+  model.prototype.emit = function(event, data) {
+    return this.__emitter.emit(event, data);
   };
 
   /**
@@ -393,6 +371,7 @@ Model.create = function(name, properties, methods, statics) {
   model.prototype.reset = function (full) {
     this.__rebuildBind = true;
     this.__propChanged = {};
+    this.__propShouldNotify = {};
     this.__history = [];
     this.__bind = null;
 
@@ -452,186 +431,108 @@ Model.create = function(name, properties, methods, statics) {
    * Construct the reserved words list to ensure no conflicts between built-in props and defined props/methods
    */
 
-  const RESERVED_WORDS = ( () => {
-    let _instanceProps = [...Object.getOwnPropertyNames(new model())];
-    let _staticProps = [...Object.getOwnPropertyNames(model.prototype)];
-
-    // Check if there are conflicts in instance and static naming
-    // A intersect B = B intersect A
-    _instanceProps.forEach( x => {
-      if ( _staticProps.includes(x) ) throw new Error('Conflict in instance and static built-in properties, ')
-    });
-
-    return [..._instanceProps, ..._staticProps];
-  }) ();
-
-
-
+  const RESERVED_WORDS = Object.getOwnPropertyNames(new model());
+  const STATIC_RESERVED_WORDS = Object.getOwnPropertyNames(model.prototype);
 
   /**
-   * BOILERPLATE MODEL CODE IS ABOVE THIS POINT
-   * MODEL SPECIFIC DEFINITIONS CODE IS BELOW THIS POINT
+   * BOILERPLATE MODEL CODE IS ABOVE THIS POINT - MODEL SPECIFIC DEFINITIONS CODE IS BELOW THIS POINT
    */
-
-
-
-
-  if (!Array.isArray(properties)) properties = [properties];
+  if (!Array.isArray(properties))  {
+    properties = [properties];
+  }
 
   // parse property and check property definition
   properties.forEach(props => {
 
     for (let key in props) {
-      let def;
-
       //Dev can pass in either a simple type by passing in a primitive, Array, Model or a Function.
       //Or they can pass in an Object with a more complex definition.
-
-      /**
-       * Validations can be set on a per property basis or an overall model basis
-       * Property validations are run in order defined, then any cross-validations (order not guaranteed)
-       * Model validations are only run on a call to .isValid() on the model (order not guaranteed)
-       * Validation is lazy, taking the first negative result and stopping the validation execution chain
-       *
-       * @example
-       * let testModel = Model.create(
-       *  'Test',
-       *  name: String,
-       *  favorites: [String],
-       *  confirmFavorites: {
-       *    type: [String],
-       *    virtual: true,
-       *  }
-       *  password: {
-       *    type: String,
-       *    validators: [Validation.optional, Validation.password]
-       *    validationOptions: [Validation.validateImmediate]
-       *  },
-       *  confirmPassword: {
-       *    type: String,
-       *    validators: [Validation.required, Validation.name, {
-       *                                                        validator: Validation.confirmPassword,
-       *                                                        crossValidation: 'Password'
-       *                                                      },
-       *    validationOptions: [Validation.validateImmediate, Validation.crossValidateImmediate],
-       *    virtual: true
-       *  },
-       *  {
-       *    ...
-       *    validate: () => this.isGood && this.date > this.otherDate,
-       *    ...
-       *  }
-       * )
-       *
-       */
-
-      /*
-       * Checks are done in the order of:
-       * First: Check if it's a complex definition
-       *    -> Unnest the inner type
-       * Second: Check if it's an array
-       *    -> Unnest the type definition
-       *    -> Set isArray flag to true
-       * Third: Validate the type itself. Choice of:
-       *  A) if it's a valid type (non-array)
-       *  B) if it's a string reference to another model (non-array)
-       *  C) Hard error out (failed to define or use a complete definition)
-       *
-       * The final definition (def) should have these properties set:
-       * - type
-       * - isArray
-       * - key
-       * - validators [{validator: {validate:Function, message:String}, crossValidation: [] }]
-       * - validationOptions
-       * - virtual
-       * Other properties are initialized but will be set in later sections
-       * */
       let type = props[key];
-
-      /* Complex definition processing */
-      let validators = []; // validators will be run in order
-      let validationOptions = [];
-      let formatter = false; // TODO: DATA FORMATTING
-      let formatterOptions = false;
-
+      //Setup a blank validation function for each of use later.
+      let validate = () => true;
+      //validators will be run in order
+      let validators = [];
       let virtual = false;
+      let complexDef = {};
+      let notify = true;
+      let isRequired = false;
+      let auto = undefined;
+      let initial = undefined;
 
       if (type.constructor === Object && type.type) {
-        let complexDef = type;
+        complexDef = type;
+
         // Unnest the inner type
         type = complexDef.type;
 
-        // process the validators
+        //Setup validation function for this prop.
         if (complexDef.validators) {
-          if (!Array.isArray(complexDef.validators))
-            complexDef.validators = [complexDef.validators];
+          validators = Array.isArray(complexDef.validators) ? complexDef.validators : [complexDef.validators];
 
-          for (let validator of complexDef.validators) {
-            if (!validator) {
-              console.warn('Invalid validator for property definition of ' + key + ' on ' + name);
-              continue;
-            }
+          let ixIsRequired = validators.findIndex(validator => validator === Validation.required);
 
-            // Validators themselves can also be complex definitions
-            let crossValidation = [];
-            if (validator.constructor === Object && validator.validator) {
-              crossValidation = validator.crossValidation || crossValidation;
-              // check that the crossValidation points at properties that are defined
-              // if we fail any crossValidation, continue on to the next validator
-              if (!crossValidation.every(key => props.hasOwnProperty(key))) {
-                console.warn('Invalid cross-validation for property definition of ' + key + ' on ' + name);
-                continue;
-              }
-              validator = validator.validator;
-            }
-
-            if (Validation.isValidValidator(validator)) {
-              // validator is an approved validator
-              // add validator and associated options
-              validators.push({validator: validator, crossValidation: crossValidation});
-
-            }
-            else {
-              console.warn('Invalid validator for property definition of ' + key + ' on ' + name);
-              continue; //explicit continue
-            }
-
+          //Required is a special validator.  Pull it out of the array and set a flag for use later.
+          if (ixIsRequired > -1) {
+            isRequired = true;
+            validators.splice(ixIsRequired, 1);
           }
-        }
 
-        // process validationOptions
-        if (complexDef.validationOptions) {
-          if (!Array.isArray(complexDef.validationOptions))
-            complexDef.validationOptions = [complexDef.validationOptions];
+          validate = function() {
+            let def = this.constructor.def[key];
+            let state = true;
+            let message;
 
-          if (!complexDef.validationOptions.every(option => Validation.isValidValidationOption(option)))
-            console.warn('Invalid validationOption for property definition of ' + key + ' on ' + name);
+            let hasValue = Validation.required.validate.call(this, this.__data[key]);
 
-          validationOptions = complexDef.validationOptions.filter(option => Validation.isValidValidationOption(option));
+            if (def.isRequired && !hasValue) {
+              //If this is required and it is empty, validation fails.
+              state = false;
+              message = Validation.required.message;
+            } else if (!def.isRequired && !hasValue) {
+              //If this is NOT required, and has no value, then it is by default, valid.
+              state = true;
+            } else {
+              for (let validator of def.validators) {
+                if (!validator.validate.call(this, this.__data[key])) {
+                  state = false;
+                  message = validator.message;
+                  break;
+                }
+              }
+            }
 
-        }
+            this.__validations[key] = state;
+            this.__messages[key] = message;
 
-        // process the formatters
-        // TODO: Implement formatters
-        if (complexDef.formatters) {
-
+            return state;
+          };
         }
 
         // Pass through for other complex definition options
-        virtual = Boolean(complexDef.virtual);
+        if (complexDef.virtual === true) {
+          virtual = true;
+        }
 
+        if (complexDef.notify === false) {
+          notify = false;
+        }
+
+        //TODO: may want to do some more checking here, like does the definition specific an auto value that matches the type?
+        if (complexDef.auto !== undefined) {
+          auto = complexDef.auto;
+        }
+
+        //TODO: may want to do some more checking here, like does the definition specific an auto value that matches the type?
+        if (complexDef.initial !== undefined) {
+          initial = complexDef.initial;
+        }
       }
 
       /* Array Denesting */
       let isArray = Array.isArray(type);
 
       if (isArray) {
-        if (type.length > 0) {
-          type = type[0];
-        }
-        else {
-          throw new Error(`"type" of "${type}" not provided or invalid for property definition of "${key}" on "${name}"`);
-        }
+        type = type[0];
       }
 
       /* ModelType Checking */
@@ -648,24 +549,26 @@ Model.create = function(name, properties, methods, statics) {
         throw new Error(`"type" of "${type}" not provided or invalid for property definition of "${key}" on "${name}"`);
       }
 
-      def = {
+      let def = {
+        ... complexDef,                       // Let the dev setup their own properties
         key: key,                             // The name of the property
         type: type,                           // The type of the property
-        validate: () => true,                 // The validation function of the property (no params
-        crossValidate: [],                    // Any validation functions to be called, requested by other properties
-        modelValidate: [],                    // Any validation functions to be called, requested by overall model
+        validate: validate,                   // The validation function of the property
         validators: validators,               // Collection of validators attached to the property
-        validationOptions: validationOptions, // Collection of options on how/when validators are called
-        isArray: isArray,                      // Whether this property is an array
-        virtual: virtual
+        isArray: isArray,                     // Whether this property is an array
+        virtual: virtual,                     // Does this property persist to a data store? Or is it used for other purposes.
+        isRequired: isRequired,               // is this property required.
+        notify: notify,                       // when this property is changed, should it trigger a notify
+        initial: initial,                     // what is the value this property should be initialized to?
+        auto: auto                            // what value will this take one after being set to null?
+
       };
 
       // def IS PROPERLY SET (all data is clean, functions have not been set up yet)
-      // USE def FROM THIS POINT FORWARD
 
       // Do a sanity check to make sure we don't duplicate keys
       if (model.def.keys.includes(def.key)) {
-        throw new Error('Duplicate key "' + def.key + '" defined in ' + name);
+        throw new Error(`Duplicate property name "${def.key}" defined in ${name}`);
       }
 
       // Certain reserved properties that can't be used in model definitions
@@ -676,270 +579,36 @@ Model.create = function(name, properties, methods, statics) {
       model.def[def.key] = def;
       model.def.keys.push(def.key);
 
+      let setter = (ModelTypes.getTypeSetter(def.type, def.isArray))(def.key, def);
+
+      Object.defineProperty(model.prototype, def.key, {
+        get: function () {
+          return this.__data[def.key];
+        },
+        set: function(val) {
+          setter.call(this, val);
+          def.validate.call(this);
+        },
+        configurable: true
+      });
     }
   });
-
-  // Set up validate functions
-  // Validation must be done after processing the entire definition to allow for cross validation
-  /**
-   * Each property definition currently has filled:
-   *  - key
-   *  - validators
-   *  - validationOptions
-   *  <others>
-   *
-   *  New properties on validators objects:
-   *  - validate { Function }
-   *  - message { String }
-   *
-   *  New properties on definitions:
-   *  - validate { Function }
-   *  - crossValidate [{key: String, validate: Function, validationOptions: []}]
-   *  - modelValidate [{key: 'model', validate: Function, validationOptions: []}]
-   *
-   *  New properties on model definition
-   *  - modelValidator {function}
-   *
-   *  This next section:
-   *  First:  Adds a validate function to each validator on each property
-   *  Second: Amalgamate all validator functions into a single validate function for the property
-   *          and attaches the validate function to  the property and any cross validate properties
-   *  Third:  Overlays the setter with any validate or cross-validate functions
-   *          including any overall model validation functions
-   */
-
-  for (let key of model.def.keys) {
-
-    let def = model.def[key];
-
-    // Process isRequired convenience flag
-    if (def.validationOptions.includes(Validation.isRequired)
-        && !def.validators.includes(Validation.required)) {
-      validators.shift(Validation.required);
-    }
-
-    if (def.validators.length > 0) {
-      let validators = def.validators; // validator definitions
-      let isOptional = def.validationOptions.includes(Validation.isOptional);
-      let isOptionalShortCircuit = () => false; // returns whether can skip the validators
-      
-      // setup the validator validate
-      for (let validatorDef of validators) {
-        let crossValidation = validatorDef.crossValidation;
-        let funcArgs = [key, ... crossValidation];
-
-        // Create the validate function for the specific validator
-        let validate = function () {
-          let args = funcArgs.map(key => this.__data[key]);
-          return validatorDef.validator.validate.call(this, ... args);
-        };
-
-        validatorDef.validate = validate;
-        validatorDef.message = validatorDef.validator.message;
-      }
-      // end of validator validate set up
-      
-      // setup optional validator
-      if (isOptional) {
-        isOptionalShortCircuit = function () {
-          let arg = this.__data[key];
-          return Validation.empty.validate.call(this, arg);
-        }
-      }
-      // end optional setup
-
-      // set up overall property validate function
-      let propValidate = function () {
-        let state = true;
-        let message = '';
-        
-        if (!isOptionalShortCircuit.call(this)) {
-          for (let validatorDef of validators) {
-            if (!validatorDef.validate.call(this)) { // if any validation fails, auto fail
-              // Set the property error message to the failed validator error message
-              state = false;
-              message = validatorDef.message;
-              break;
-            }
-          }
-        }
-
-        this.__validations[key] = state;
-        this.__messages[key] = message;
-
-        return state;
-
-      };
-
-      def.validate = propValidate;
-      // end of property validator setup
-
-      // attach validate function on any cross-validated properties as requested
-      for (let validator of validators) {
-        let crossValidation = validator.crossValidation;
-        for (let crossKey of crossValidation) {
-          model.def[crossKey].crossValidate.push({
-            key: key,
-            validate: propValidate,
-            validationOptions: (def.validationOptions.includes(Validation.crossValidateImmediate)
-                ? Validation.validateImmediate
-                : []
-            )
-          });
-        }
-      }
-
-    }
-  }
-
-  // END Property validation function creation
-
-  // Attach the getters and setters to each property
-  for (let key of model.def.keys) {
-    let def = model.def[key];
-    let setter = ModelTypes.getTypeSetter(def.type, def.isArray);
-    setter = setter(def.key, def);
-
-    //TODO: this currently runs through entire array of validators all the time. Make it better.
-    let propSetter = function (val) {
-
-      setter.call(this, val); // Set the value in the underlying data store
-
-      // run validation if requested
-      if (def.validationOptions && def.validationOptions.includes(Validation.validateImmediate)) {
-        def.validate.call(this);
-      }
-
-      if (def.crossValidate) {
-        // run crossValidation if requested
-        def.crossValidate.forEach(crossVal => {
-          if (crossVal && crossVal.validationOptions && crossVal.validationOptions.includes(Validation.validateImmediate)) {
-            crossVal.validate.call(this);
-          }
-        });
-      }
-
-      if (def.modelValidate) {
-        // run modelValidation if requested
-        def.modelValidate.forEach(modelVal => {
-          if (modelVal && modelVal.validationOptions && modelVal.validationOptions.includes(Validation.validateImmediate)) {
-            modelVal.validate.call(this);
-          }
-        });
-      }
-
-    };
-
-    Object.defineProperty(model.prototype, def.key, {
-      get: function () {
-        return this.__data[def.key];
-      },
-      set: propSetter,
-      configurable: true
-    });
-  }
-
-  /**
-   * This section provides the public facing interface for accessing
-   * validation states and messages that are produced from validation functions.
-   * Each of _Validations and _Messages has properties defined depending on
-   * host Model definition. The class definitions are then frozen.
-   */
-
-  model.prototype._Validations.keys = [];
-  model.prototype._Messages.keys = [];
-
-  // Attach the messages access point to validations for easier access
-  Object.defineProperty(model.prototype._Validations.prototype, 'messages', {
-    get: function () {
-      return this.__modelInstance.messages;
-    },
-    configurable: false,
-    writeable: false,
-    enumerable: false
-  });
-
-  for (let key of model.def.keys) {
-    // if the property has no validators attached to it, it doesn't have a validation state
-    if (model.def[key].validators.length === 0)
-      continue;
-
-    // get the state of validation
-    Object.defineProperty(model.prototype._Validations.prototype, key, {
-      get: function () {
-        return this.__modelInstance.__validations[key];
-      },
-      configurable: false,
-      writeable: false,
-      enumerable: true
-    });
-
-    model.prototype._Validations.keys.push(key);
-
-    Object.defineProperty(model.prototype._Messages.prototype, key, {
-      get: function () {
-        return this.__modelInstance.__messages[key];
-      },
-      configurable: false,
-      writeable: false,
-      enumerable: true
-    });
-
-    model.prototype._Messages.keys.push(key);
-
-  }
-
-  // The validations and messages classes should be immutable from this point forward
-  model.prototype._Validations.prototype = Object.freeze(model.prototype._Validations.prototype);
-  model.prototype._Messages.prototype = Object.freeze(model.prototype._Messages.prototype);
-
 
   //Compose any instance methods that have been supplied for this model.
   if (methods) {
-
-    if (!Array.isArray(methods)) methods = [methods];
-
-    //Compositions are allowed to override each other, but should not override built-in functions
-    methods.forEach( comp => {
-      let compMethods = Object.getOwnPropertyNames(comp);
-      compMethods.forEach( compKey => {
-        if (RESERVED_WORDS.includes(compKey)) {
-          throw new Error(`Reserved property name "${compKey}" used in instance methods definition of ${name}`)
-        }
-      });
-    });
-
-    //Pull out the last inherited 'validate' function and store it, this is the model validator.
-    for (let methodComposition of methods) {
-      for (let key in methodComposition) {
-        if (key === 'validate') {
-          model.def.modelValidator = methodComposition[key];
-        }
-      }
-    }
-
-    compose(model.prototype, methods);
+    let _methods =  Array.isArray(methods) ? methods : [methods];
+    checkPropertyNames(_methods,  RESERVED_WORDS);
+    compose(model.prototype, _methods);
   }
 
   //Compose any static methods that have been supplied for this model.
   if (statics) {
-
-    if (!Array.isArray(statics)) statics = [statics];
-
-    //Compositions are allowed to override each other, but should not override built-in functions
-    statics.forEach( comp => {
-      let compMethods = Object.getOwnPropertyNames(comp);
-      compMethods.forEach( compKey => {
-        if (RESERVED_WORDS.includes(compKey)) {
-          throw new Error(`Reserved property name "${compKey}" used in static methods definition of ${name}`)
-        }
-      });
-    });
-
-    compose(model, statics);
+    let _statics = Array.isArray(statics) ? statics : [statics];
+    checkPropertyNames(_statics, STATIC_RESERVED_WORDS);
+    compose(model, _statics);
   }
 
   return model;
 };
 
-export default Model;
+module.exports = Model;

@@ -9,10 +9,10 @@ export default function setter(key, def) {
       this.__data[key].__parentKey = null;
     }
 
-    if (nullCheck(this, key, val)) return;
+    if (nullCheck(this, key, val, def)) return;
 
     //Check to make sure the value being set is the correct Model, if not, cast it.
-    let next = (val.constructor === def.type) ? val : new def.type(val);
+    let next = (val.constructor.isModel) ? val : new def.type(val);
 
     next.__parent = this;
     next.__parentKey = key;

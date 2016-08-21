@@ -18,7 +18,7 @@ export default function setter(key, def) {
       this.__data[key].removeAllListeners();
     }
 
-    if (nullCheck(this, key, val)) return;
+    if (nullCheck(this, key, val, def)) return;
 
 
     //Don't modify the original array.
@@ -26,7 +26,7 @@ export default function setter(key, def) {
 
     for (let i=0; i<val.length; i++) {
       if (val[i] !== undefined && val[i] !== null) {
-        arr[i] = (val[i].constructor !== def.type) ? new def.type(val[i]) : val[i];
+        arr[i] = (val[i].constructor.isModel) ? val[i] : new def.type(val[i]);
         arr[i].__parent = this;
         arr[i].__parentKey = key;
       }

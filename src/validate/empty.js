@@ -2,5 +2,6 @@ export default {
   validate: function(value) {
     return !Boolean(value)
   },
-  message: 'This field must be empty.'
+  message: 'This field must be empty.',
+  name: 'empty'
 };

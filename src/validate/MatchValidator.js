@@ -6,6 +6,7 @@ export default function(message = null) {
     validate: function(value, comparisonValue) {
       return ( value && comparisonValue && value === comparisonValue );
     },
-    message: message
+    message: message,
+    name: 'MatchValidator'
   };
 };

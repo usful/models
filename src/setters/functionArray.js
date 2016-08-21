@@ -3,7 +3,7 @@ import nullCheck from './nullCheck';
 
 export default function setter(key, def) {
   return function (val) {
-    if (nullCheck(this, key, val)) return;
+    if (nullCheck(this, key, val, def)) return;
 
     //Because this is an array of something with a function type, we do not know if the array entries
     //are in the correct format.  So we will have to call the function again.

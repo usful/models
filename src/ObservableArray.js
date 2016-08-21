@@ -3,7 +3,7 @@ const ADD = 'Add';
 const REMOVE = 'Remove';
 const SET = 'Set';
 
-import guid from './lib/guid';
+import {EventEmitter} from 'fbemitter';
 
 class ObservableArrayIterator {
   constructor(array) {
@@ -23,7 +23,7 @@ class ObservableArrayIterator {
 
 export default class ObservableArray {
   constructor(items) {
-    this.__listeners = [];
+    this.__emitter = new EventEmitter();
 
     this._array = Array.isArray(items) ? items : new Array(items);
 
@@ -43,7 +43,7 @@ export default class ObservableArray {
         set: function (val) {
           this._array[index] = val;
 
-          this.raiseEvent({
+          this.emit({
             array: this,
             type: SET,
             index: index,
@@ -88,30 +88,15 @@ export default class ObservableArray {
   }
 
   addListener(cb) {
-    let listener = {
-      id: guid(),
-      cb: cb
-    };
-
-    this.__listeners.push(listener);
-
-    return listener.id;
+    return this.__emitter.addListener('changed', cb);
   }
-
-  removeListener(id) {
-    if (!id) return null;
-
-    let ix = this.__listeners.findIndex(listener => listener.id === id);
-
-    return (ix > -1) ? this.__listeners.splice(ix, 1) : null;
-  };
 
   removeAllListeners() {
-    this.__listeners = [];
+    return this.__emitter.removeAllListeners();
   }
 
-  raiseEvent(event) {
-    this.__listeners.forEach(listener => listener.cb(event));
+  emit(event) {
+    this.__emitter.emit('changed', event);
   }
 
   get length() {
@@ -123,7 +108,7 @@ export default class ObservableArray {
 
     this.defineIndexProperty(this.length - 1);
 
-    this.raiseEvent({
+    this.emit({
       array: this,
       type: ADD,
       index: this.length - 1,
@@ -136,7 +121,7 @@ export default class ObservableArray {
 
     delete this[this.length - 1];
 
-    this.raiseEvent({
+    this.emit({
       array: this,
       type: REMOVE,
       index: this.length - 1,
@@ -152,7 +137,7 @@ export default class ObservableArray {
     for (let i = 0; i < count; i++) {
       this.defineIndexProperty(this.length + i);
 
-      this.raiseEvent({
+      this.emit({
         array: this,
         type: ADD,
         index: i,
@@ -168,7 +153,7 @@ export default class ObservableArray {
 
     delete this[this.length - 1];
 
-    this.raiseEvent({
+    this.emit({
       array: this,
       type: REMOVE,
       index: 0,
@@ -189,7 +174,7 @@ export default class ObservableArray {
     let lengthDelta = -removed.length;
 
     for (let i = 0; i < removed.length; i++) {
-      this.raiseEvent({
+      this.emit({
         array: this,
         type: REMOVE,
         index: startIndex + i,
@@ -204,7 +189,7 @@ export default class ObservableArray {
     if (toAdd) {
 
       for (let i = 0; i < toAdd.length; i++) {
-        this.raiseEvent({
+        this.emit({
           array: this,
           type: ADD,
           index: startIndex + i,
@@ -234,7 +219,7 @@ export default class ObservableArray {
 
     // only raise an event if something's happened
     if (oldArray.some( (val, index) => val !== this._array[index])) {
-      this.raiseEvent({
+      this.emit({
         array: this,
         type: SORT
       });
@@ -246,7 +231,7 @@ export default class ObservableArray {
   reverse() {
     this._array.reverse();
 
-    this.raiseEvent({
+    this.emit({
       array: this,
       type: SORT
     });

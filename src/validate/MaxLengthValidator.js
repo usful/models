@@ -9,6 +9,9 @@ export default function(maxLength, message = null) {
     validate: function(value) {
       return value && value.length <= maxLength;
     },
-    message: message
+    message: message,
+    name: 'MaxLengthValidator',
+    args: 'maxLength',
+    maxLength: maxLength
   };
 };

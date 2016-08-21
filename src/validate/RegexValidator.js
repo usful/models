@@ -16,6 +16,7 @@ export default function(pattern = null, flags = '', message =  'Value does not m
     validate: function(value) {
       return value && regex.test(value);
     },
-    message: message
+    message: message,
+    name: 'RegexValidator'
   }
 };
