@@ -631,4 +631,4 @@ Model.create = function(name, properties, methods, statics) {
   return model;
 };
 
-module.exports = Model;
+export default Model;
