@@ -8,6 +8,8 @@ import guid from './lib/guid';
 import checkPropertyNames from './lib/checkPropertyNames';
 
 import generateChangeSet from './generateChangeSet';
+//TODO: Remove once v3.0.0 API is rolled out to production.
+import generateChangeSetV0 from './generateChangeSetV0';
 
 import ModelTypes from './ModelTypes'
 import Validation from './Validation'
@@ -191,6 +193,15 @@ Model.create = function(name, properties, methods, statics) {
   };
 
   /**
+   * Static method to generate a changeSet for instances of this model.
+   * @type {function(this:model)}
+   * @deprecated since v3.0.0+
+   */
+  model.generateChangeSetV0 = function (bind1, bind2) {
+    return generateChangeSetV0(this.def, bind1, bind2);
+  };
+
+  /**
    * The immutable object is quantum.  Only when you inspect it does it change.
    */
   Object.defineProperty(model.prototype, 'bind', {
@@ -206,6 +217,15 @@ Model.create = function(name, properties, methods, statics) {
    */
   model.prototype.generateChangeSet = function () {
     return this.constructor.generateChangeSet(this.__lastBindState, this.bind);
+  };
+
+  /**
+   * Generate a changeSet for this instance of this model.
+   * @type {function(this:model)}
+   * @deprecated since v3.0.0+
+   */
+  model.prototype.generateChangeSetV0 = function () {
+    return this.constructor.generateChangeSetV0(this.__lastBindState, this.bind);
   };
 
   /**
