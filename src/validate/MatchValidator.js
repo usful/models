@@ -1,10 +1,8 @@
-export default function(message = null) {
-
-  message = message || 'Values do not match';
+export default function(field, message = 'Values do not match') {
 
   return {
-    validate: function(value, comparisonValue) {
-      return ( value && comparisonValue && value === comparisonValue );
+    validate: function(value) {
+      return this[field] === value;
     },
     message: message,
     name: 'MatchValidator'
