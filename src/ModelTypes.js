@@ -15,15 +15,12 @@ import functionArraySetter from './setters/functionArray';
 import functionSetter from './setters/function';
 import genericSetter from './setters/generic';
 
+function isFunction(functionToCheck) {
+  let getType = {};
+  return functionToCheck && getType.toString.call(functionToCheck) === '[object Function]';
+}
+
 export default {
-  /*
-  * BEFORE MAKING ANY CHANGES 
-  *   Analyze how the getTypes function works
-  * Each model type must be able to define
-  * a) Its own setter (setter)
-  * b) A check to see if a value is the type (check)
-  * 
-  * */
   Model: {
     setter: function (isArray) {
       return isArray ? modelArraySetter : modelSetter;
@@ -73,52 +70,22 @@ export default {
     }
   },
   Function: {
-    setter: function() {
-      return genericSetter;
+    setter: function(isArray) {
+      return isArray ? functionArraySetter : functionSetter;
     },
     check: function(val) {
-      return true;
+      return Boolean(val) && isFunction(val);
     }
   },
-  getTypes: function() {
-    // Compiles an array of all the ModelType set on this object
-    let types = [];
+  getTypeSetter: function (def) {
+    if (this.Model.check(def.type)) return this.Model.setter(def.isArray);
+    if (this.Date.check(def.type)) return this.Date.setter(def.isArray);
+    if (this.Boolean.check(def.type)) return this.Boolean.setter(def.isArray);
+    if (this.String.check(def.type)) return this.String.setter(def.isArray);
+    if (this.Number.check(def.type)) return this.Number.setter(def.isArray);
+    if (this.Function.check(def.type)) return this.Function.setter(def.isArray);
+    if (this.Object.check(def.type)) return this.Object.setter(def.isArray);
 
-    for (let type in this) {
-      // Go through each property in this object
-      // Only pull out fully defined model types
-      if (!this.hasOwnProperty(type)) {
-        continue;
-      }
-
-      let val = this[type];
-
-      if (val === Function) {
-        continue;
-      }
-
-      if (val.setter && val.check) {
-        types.push(val);
-      }
-    }
-
-    return types;
-  },
-  isValidType: function (val) {
-    // Check if a type is an allowed ModelType
-    return this.getTypes().some( type => type.check(val) );
-  },
-  getType: function (val) {
-    return this.getTypes().find( type => type.check(val) );
-  },
-  getTypeSetter: function (val, isArray) {
-    // Get the setter for a specific type
-    if (this.isValidType(val)) {
-      return this.getType(val).setter(isArray);
-    }
-    else {
-      console.warn('Generic setter used on model type. Check model definitions.');
-      return genericSetter;
-    }
+    throw new Error(`Invalid type on  ${def.key}:${def.type}`);
   }
 }

@@ -211,6 +211,24 @@ Model.create = function(name, properties, methods, statics) {
     enumerable: false
   });
 
+  Object.defineProperty(model.prototype, 'validations', {
+    get: function() {
+      return this.__validations;
+    },
+    configurable: false,
+    writeable: false,
+    enumerable: false
+  });
+
+  Object.defineProperty(model.prototype, 'messages', {
+    get: function() {
+      return this.__messages;
+    },
+    configurable: false,
+    writeable: false,
+    enumerable: false
+  });
+
   /**
    * Generate a changeSet for this instance of this model.
    * @type {function(this:model)}
@@ -555,18 +573,10 @@ Model.create = function(name, properties, methods, statics) {
         type = type[0];
       }
 
-      /* ModelType Checking */
-      if (ModelTypes.isValidType(type)) {
-        // do nothing, type is already set correctly
-      }
-      else if (typeof(type) === 'string' && Model.models.hasOwnProperty(type)) {
+      if (typeof(type) === 'string' && Model.models.hasOwnProperty(type)) {
         //Allow for types to be referenced by string.  This would probably only be used when a Model is referencing
         //itself, or if there is a cyclic dependency of Models.
         type = Model.models[type];
-      }
-      else {
-        // YOU SHALL NOT PASS
-        throw new Error(`"type" of "${type}" not provided or invalid for property definition of "${key}" on "${name}"`);
       }
 
       let def = {
@@ -599,7 +609,7 @@ Model.create = function(name, properties, methods, statics) {
       model.def[def.key] = def;
       model.def.keys.push(def.key);
 
-      let setter = (ModelTypes.getTypeSetter(def.type, def.isArray))(def.key, def);
+      let setter = (ModelTypes.getTypeSetter(def))(def.key, def);
 
       Object.defineProperty(model.prototype, def.key, {
         get: function () {
