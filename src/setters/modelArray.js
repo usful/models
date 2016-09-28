@@ -40,8 +40,10 @@ export default function setter(key, def) {
       switch (event.type) {
         case ObservableArray.EVENT_SET:
         case ObservableArray.EVENT_ADD:
-          event.item.__parent = this;
-          event.item.__parentKey = key;
+          if (event.item) {
+            event.item.__parent = this;
+            event.item.__parentKey = key;
+          }
           break;
         case ObservableArray.EVENT_REMOVE:
           event.item.__parent = null;

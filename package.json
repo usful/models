@@ -31,7 +31,7 @@
   "dependencies": {
     "babel-polyfill": "^6.13.0",
     "babel-runtime": "^6.9.2",
-    "fbemitter": "^2.0.2"
+    "fbemitter": "^2.1.1"
   },
   "author": "Clinton Robinson",
   "license": "ISC",
