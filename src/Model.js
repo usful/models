@@ -115,14 +115,14 @@ Model.create = function(name, properties, methods, statics) {
      * @type {boolean}
      * @private
      */
-    this.__rebuildBind = true;
+    this.__rebuildImmutable = true;
 
     /**
      * The most recent copy of the data as an immutable object for binding.
      * @type {{}}
      * @private
      */
-    this.__bind = null;
+    this.__immutable = null;
 
     /**
      * A reference to the parent object that contains this instance of this Model.
@@ -155,7 +155,7 @@ Model.create = function(name, properties, methods, statics) {
     }
 
     //Force the immutable bind object to come into existence and also store it for generating change sets.
-    this.__lastBindState = this.bind;
+    this.__lastImmutable = this.immutable;
 
     this.__constructing = false;
 
@@ -204,7 +204,7 @@ Model.create = function(name, properties, methods, statics) {
   /**
    * The immutable object is quantum.  Only when you inspect it does it change.
    */
-  Object.defineProperty(model.prototype, 'bind', {
+  Object.defineProperty(model.prototype, 'immutable', {
     get: immutableBinding,
     configurable: false,
     writeable: false,
@@ -234,7 +234,7 @@ Model.create = function(name, properties, methods, statics) {
    * @type {function(this:model)}
    */
   model.prototype.generateChangeSet = function () {
-    return this.constructor.generateChangeSet(this.__lastBindState, this.bind);
+    return this.constructor.generateChangeSet(this.__lastImmutable, this.immutable);
   };
 
   /**
@@ -243,7 +243,7 @@ Model.create = function(name, properties, methods, statics) {
    * @deprecated since v3.0.0+
    */
   model.prototype.generateChangeSetV0 = function () {
-    return this.constructor.generateChangeSetV0(this.__lastBindState, this.bind);
+    return this.constructor.generateChangeSetV0(this.__lastImmutable, this.immutable);
   };
 
   /**
@@ -267,7 +267,7 @@ Model.create = function(name, properties, methods, statics) {
       return;
     }
 
-    this.__rebuildBind = true;
+    this.__rebuildImmutable = true;
     this.__propChanged[key] = true;
     this.__propShouldNotify[key] = true;
 
@@ -400,22 +400,22 @@ Model.create = function(name, properties, methods, statics) {
    * @returns {{}}
    */
   model.prototype.toJSON = function () {
-    return this.bind;
+    return this.immutable;
   };
 
   /**
    * Resets this model to its last committed state, most likely it's constructed state.  Could be it's last save point.
    */
   model.prototype.reset = function (full) {
-    this.__rebuildBind = true;
+    this.__rebuildImmutable = true;
     this.__propChanged = {};
     this.__propShouldNotify = {};
     this.__history = [];
-    this.__bind = null;
+    this.__immutable = null;
 
-    this.constructor.def.keys.forEach(key => this[key] = this.__lastBindState && !full ? this.__lastBindState[key] : undefined);
+    this.constructor.def.keys.forEach(key => this[key] = this.__lastImmutable && !full ? this.__lastImmutable[key] : undefined);
 
-    this.__lastBindState = this.bind;
+    this.__lastImmutable = this.immutable;
     this.__changed = false;
   };
 
@@ -460,7 +460,7 @@ Model.create = function(name, properties, methods, statics) {
   model.prototype.hydrate = function (props) {
     this.reset();
     this.patch((this._constructor ? this._constructor(props) : props));
-    this.__lastBindState = this.bind;
+    this.__lastImmutable = this.immutable;
     this.__changed = false;
   };
 
