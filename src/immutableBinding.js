@@ -72,8 +72,9 @@ export default function immutableBinding () {
     //TODO: I actually think this entire history functionality should be moved out of this immutable binding piece anyways.
     this.__immutable.__end = Date.now();
     this.__history.push(this.__immutable);
-  } 
+  }
 
+  this.__lastImmutable = this.__immutable;
   this.__immutable = bind;
 
   return this.__immutable;
