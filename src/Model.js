@@ -441,6 +441,10 @@ Model.create = function(name, properties, methods, statics) {
     this.__changed = false;
   };
 
+  model.prototype.setChanges = function() {
+    this.__lastImmutable = this.immutable;
+  };
+
   /**
    * Apply a subset of data to this instance of this model.
    * @param props
