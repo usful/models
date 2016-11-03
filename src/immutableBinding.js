@@ -8,7 +8,7 @@
 export default function immutableBinding () {
   if (!this.__rebuildImmutable) {
     return this.__immutable;
-  }g
+  }
 
   let bind = {
     __start: Date.now(),
