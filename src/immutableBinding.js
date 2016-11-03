@@ -18,6 +18,11 @@ export default function immutableBinding () {
   for (let i = 0; i < this.constructor.def.keys.length; i++) {
     let prop = this.constructor.def.keys[i];
 
+    //This property is virtual, don't persist it.
+    if (prop.virtual) {
+      continue;
+    }
+
     //Nothings changed!  Re-use the last value.
     if (!this.__propChanged[prop]) {
       bind[prop] = this.__immutable ? this.__immutable[prop] : this.__data[prop];
