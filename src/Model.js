@@ -49,6 +49,12 @@ Model.models = {};
  */
 Model.create = function(name, properties, methods, statics) {
   let model = function (data) {
+    try {
+      this.___test = true;
+    } catch (err) {
+      //Bizarre bug.  Will throw an attempt to assign to readonly property if removed.
+    }
+    
     /**
      * An event emitter.
      */
