@@ -922,7 +922,8 @@ function Structure(name, properties) {
 
 exports.default = {
   Document: Document,
-  Structure: Structure
+  Structure: Structure,
+  Validators: _Validation2.default
 };
 
 /**

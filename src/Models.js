@@ -192,7 +192,8 @@ function Structure(name, properties) {
 
 export default {
   Document: Document,
-  Structure: Structure
+  Structure: Structure,
+  Validators: Validation
 };
 
 
