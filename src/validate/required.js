@@ -1,6 +1,6 @@
 export default {
   validate: function(value) {
-    return Boolean(value);
+    return value !== null && value !== undefined;
   },
   message: 'This field is required.',
   name: 'required'

@@ -4,8 +4,8 @@ var path = require('path');
 var libraryName = 'Models';
 var outputFile = libraryName + '.js';
 
-var config = {
-  entry: __dirname + '/src/Model.js',
+module.exports = {
+  entry: __dirname + '/src/Models.js',
   devtool: 'source-map',
   output: {
     path: __dirname + '/dist',
@@ -18,7 +18,7 @@ var config = {
     loaders: [
       {
         test: /(\.jsx|\.js)$/,
-        loader: 'babel',
+        loader: 'babel-loader',
         exclude: /(node_modules|bower_components)/,
         query: {
           presets: ['es2015', 'stage-0', 'react']
@@ -26,11 +26,5 @@ var config = {
       }
     ]
   },
-  resolve: {
-    root: path.resolve('./src'),
-    extensions: ['', '.js']
-  },
   watch: true
 };
-
-module.exports = config;
