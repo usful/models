@@ -73,7 +73,7 @@ return /******/ (function(modules) { // webpackBootstrap
 /******/ 	__webpack_require__.p = "";
 /******/
 /******/ 	// Load entry module and return exports
-/******/ 	return __webpack_require__(__webpack_require__.s = 13);
+/******/ 	return __webpack_require__(__webpack_require__.s = 14);
 /******/ })
 /************************************************************************/
 /******/ ([
@@ -293,17 +293,17 @@ FUNCTIONS.forEach(function(f){return TypedArray.prototype[f]=function(){return t
 
 "use strict";
 Object.defineProperty(exports,"__esModule",{value:true});
-var _RegexValidator=__webpack_require__(9);var _RegexValidator2=_interopRequireDefault(_RegexValidator);
-var _MaxLengthValidator=__webpack_require__(5);var _MaxLengthValidator2=_interopRequireDefault(_MaxLengthValidator);
-var _MinLengthValidator=__webpack_require__(7);var _MinLengthValidator2=_interopRequireDefault(_MinLengthValidator);
-var _MatchValidator=__webpack_require__(4);var _MatchValidator2=_interopRequireDefault(_MatchValidator);
-var _InValidator=__webpack_require__(3);var _InValidator2=_interopRequireDefault(_InValidator);
-var _MaxValidator=__webpack_require__(6);var _MaxValidator2=_interopRequireDefault(_MaxValidator);
-var _MinValidator=__webpack_require__(8);var _MinValidator2=_interopRequireDefault(_MinValidator);
+var _RegexValidator=__webpack_require__(10);var _RegexValidator2=_interopRequireDefault(_RegexValidator);
+var _MaxLengthValidator=__webpack_require__(6);var _MaxLengthValidator2=_interopRequireDefault(_MaxLengthValidator);
+var _MinLengthValidator=__webpack_require__(8);var _MinLengthValidator2=_interopRequireDefault(_MinLengthValidator);
+var _MatchValidator=__webpack_require__(5);var _MatchValidator2=_interopRequireDefault(_MatchValidator);
+var _InValidator=__webpack_require__(4);var _InValidator2=_interopRequireDefault(_InValidator);
+var _MaxValidator=__webpack_require__(7);var _MaxValidator2=_interopRequireDefault(_MaxValidator);
+var _MinValidator=__webpack_require__(9);var _MinValidator2=_interopRequireDefault(_MinValidator);
 
-var _integer=__webpack_require__(11);var _integer2=_interopRequireDefault(_integer);
-var _required=__webpack_require__(12);var _required2=_interopRequireDefault(_required);
-var _empty=__webpack_require__(10);var _empty2=_interopRequireDefault(_empty);function _interopRequireDefault(obj){return obj&&obj.__esModule?obj:{default:obj};}exports.default=
+var _integer=__webpack_require__(12);var _integer2=_interopRequireDefault(_integer);
+var _required=__webpack_require__(13);var _required2=_interopRequireDefault(_required);
+var _empty=__webpack_require__(11);var _empty2=_interopRequireDefault(_empty);function _interopRequireDefault(obj){return obj&&obj.__esModule?obj:{default:obj};}exports.default=
 
 {
 Regex:_RegexValidator2.default,
@@ -340,6 +340,69 @@ ValidationError;
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
+Object.defineProperty(exports,"__esModule",{value:true});exports.default=
+
+
+
+
+
+
+compose;function compose(obj,compositions){
+
+if(!compositions){
+compositions=obj;
+obj={};
+}
+
+
+if(!Array.isArray(compositions)){
+compositions=[compositions];
+}
+
+for(var _iterator=compositions,_isArray=Array.isArray(_iterator),_i=0,_iterator=_isArray?_iterator:_iterator[typeof Symbol==="function"?Symbol.iterator:"@@iterator"]();;){var _ref;if(_isArray){if(_i>=_iterator.length)break;_ref=_iterator[_i++];}else{_i=_iterator.next();if(_i.done)break;_ref=_i.value;}var composition=_ref;
+
+for(var key in composition){
+
+
+if(composition.hasOwnProperty(key)){
+var desc=Object.getOwnPropertyDescriptor(composition,key);
+
+
+
+if(desc.get||desc.set){
+Object.defineProperty(obj,key,{
+get:desc.get,
+set:desc.set,
+enumerable:desc.enumerable,
+writeable:desc.writeable,
+configurable:desc.configurable});
+
+}else{
+
+
+
+
+
+
+obj[key]=composition[key];
+
+
+if(obj[key].construtor===Function){
+obj[key].bind(obj);
+}
+}
+}
+}
+}
+
+return obj;
+}
+
+/***/ }),
+/* 4 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
 Object.defineProperty(exports,"__esModule",{value:true});exports.default=inValidator;function inValidator(values,message){
 if(!Array.isArray(values)){
 throw new Error('An array of values must be provided to the InValidator.');
@@ -359,7 +422,7 @@ values:values};
 };
 
 /***/ }),
-/* 4 */
+/* 5 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -375,7 +438,7 @@ name:'MatchValidator'};
 };;
 
 /***/ }),
-/* 5 */
+/* 6 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -398,7 +461,7 @@ maxLength:maxLength};
 };;
 
 /***/ }),
-/* 6 */
+/* 7 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -421,7 +484,7 @@ max:max};
 };
 
 /***/ }),
-/* 7 */
+/* 8 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -444,7 +507,7 @@ minLength:minLength};
 };;
 
 /***/ }),
-/* 8 */
+/* 9 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -467,7 +530,7 @@ min:min};
 };
 
 /***/ }),
-/* 9 */
+/* 10 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -495,7 +558,7 @@ name:'RegexValidator'};
 };;
 
 /***/ }),
-/* 10 */
+/* 11 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -507,7 +570,7 @@ message:'This field must be empty.',
 name:'empty'};
 
 /***/ }),
-/* 11 */
+/* 12 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -519,7 +582,7 @@ message:'You have to enter a whole number value.',
 name:'integer'};
 
 /***/ }),
-/* 12 */
+/* 13 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -531,13 +594,14 @@ message:'This field is required.',
 name:'required'};
 
 /***/ }),
-/* 13 */
+/* 14 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 Object.defineProperty(exports,"__esModule",{value:true});var _extends=Object.assign||function(target){for(var i=1;i<arguments.length;i++){var source=arguments[i];for(var key in source){if(Object.prototype.hasOwnProperty.call(source,key)){target[key]=source[key];}}}return target;};var _TypedArray=__webpack_require__(0);var _TypedArray2=_interopRequireDefault(_TypedArray);
 var _Validation=__webpack_require__(1);var _Validation2=_interopRequireDefault(_Validation);
-var _ValidationError=__webpack_require__(2);var _ValidationError2=_interopRequireDefault(_ValidationError);function _interopRequireDefault(obj){return obj&&obj.__esModule?obj:{default:obj};}
+var _ValidationError=__webpack_require__(2);var _ValidationError2=_interopRequireDefault(_ValidationError);
+var _compose=__webpack_require__(3);var _compose2=_interopRequireDefault(_compose);function _interopRequireDefault(obj){return obj&&obj.__esModule?obj:{default:obj};}
 
 function createModel(properties){
 function model(data){
@@ -545,8 +609,16 @@ if(this.constructor!==model){
 throw new Error('Must be invoked with new.');
 }
 
-this.__data=data||{};
+this.__data={};
 this.__parent=null;
+
+if(data){
+for(var key in data){
+if(data.hasOwnProperty(key)){
+this[key]=data[key];
+}
+}
+}
 
 return this;
 }
@@ -577,6 +649,8 @@ if(properties[key].constructor===Object&&properties[key].type){
 prop.type=properties[key].type;
 prop.validators=properties[key].validators;
 prop.default=properties[key].default;
+}else{
+prop.type=properties[key];
 }
 
 
@@ -594,7 +668,7 @@ set:function set(val){
 this.__data[prop.key]=val;
 
 
-if(prop.type.constructor.isModel||prop.type.isArray){
+if(prop.type.isModel||prop.type.isArray){
 
 if(val===null||val===undefined&&this.__data[prop.key]){
 this.__data[prop.key].__parent=null;
@@ -617,9 +691,13 @@ this.__data[prop.key]=val;
 this.__changed(prop.key);
 },
 configurable:false,
-enumerable:true,
-writable:true});
+enumerable:true});
 
+
+
+if(typeof prop.type==='string'){
+setTimeout(function(){return prop.type=Document[prop.type]||Structure[prop.type];},1);
+}
 
 model.def.props.push(prop);};for(var key in properties){_loop(key);
 }
@@ -710,8 +788,9 @@ throw new Error('Must be invoked with new.');
 
 var document=createModel(properties);
 document.isDocument=true;
+document.model=name;
 
-Document[name]=document();
+Document[name]=document;
 return document;
 }
 
@@ -722,15 +801,27 @@ throw new Error('Must be invoked with new.');
 
 var structure=createModel(properties);
 structure.isStructure=true;
+structure.model=name;
 
-Structure[name]=structure();
+Structure[name]=structure;
 return structure;
 }exports.default=
 
 {
 Document:Document,
 Structure:Structure,
-Validators:_Validation2.default};
+Validators:_Validation2.default,
+utils:{
+compose:_compose2.default}};
+
+
+
+window.Models={
+Document:Document,
+Structure:Structure,
+Validators:_Validation2.default,
+utils:{
+compose:_compose2.default}};
 
 /***/ })
 /******/ ]);

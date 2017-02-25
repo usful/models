@@ -26,5 +26,23 @@ module.exports = {
       }
     ]
   },
+  plugins: [
+    /*
+    new webpack.optimize.UglifyJsPlugin({
+      debug: false,
+      minimize: true,
+      sourceMap: false,
+      output: {
+        comments: false
+      },
+      compressor: {  // eslint-disable-line camelcase
+        warnings: false,
+        unused: true,
+        dead_code: true
+      },
+      mangle: false
+    })
+    */
+  ],
   watch: true
 };

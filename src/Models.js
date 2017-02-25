@@ -1,6 +1,7 @@
 import TypedArray from './TypedArray';
 import Validation from './Validation';
 import ValidationError from './ValidationError';
+import compose from './compose';
 
 function createModel(properties) {
   function model(data) {
@@ -8,8 +9,16 @@ function createModel(properties) {
       throw new Error('Must be invoked with new.');
     }
     
-    this.__data = data || {};
+    this.__data = {};
     this.__parent = null;
+    
+    if (data) {
+      for (let key in data) {
+        if (data.hasOwnProperty(key)) {
+          this[key] = data[key];
+        }
+      }
+    }
     
     return this;
   }
@@ -40,6 +49,8 @@ function createModel(properties) {
       prop.type = properties[key].type;
       prop.validators = properties[key].validators;
       prop.default = properties[key].default;
+    } else {
+      prop.type = properties[key];
     }
     
     //Unpack array types. ie. names: [String]
@@ -57,7 +68,7 @@ function createModel(properties) {
         this.__data[prop.key] = val;
         
         // If this type is a model (deep object) or an array, we need to be able to propagate changes later.
-        if (prop.type.constructor.isModel || prop.type.isArray) {
+        if (prop.type.isModel || prop.type.isArray) {
           //If we are un-setting this object, clear references.
           if (val === null || val === undefined && this.__data[prop.key]) {
             this.__data[prop.key].__parent = null;
@@ -80,9 +91,13 @@ function createModel(properties) {
         this.__changed(prop.key);
       },
       configurable: false,
-      enumerable: true,
-      writable: true
+      enumerable: true
     });
+    
+    //Lazy load definitions to allow cyclic references
+    if (typeof prop.type === 'string') {
+      setTimeout(() => prop.type = Document[prop.type] || Structure[prop.type], 1)
+    }
     
     model.def.props.push(prop);
   }
@@ -173,8 +188,9 @@ function Document(name, properties) {
   
   const document = createModel(properties);
   document.isDocument = true;
+  document.model = name;
   
-  Document[name] = document();
+  Document[name] = document;
   return document;
 }
 
@@ -185,17 +201,29 @@ function Structure(name, properties) {
   
   const structure = createModel(properties);
   structure.isStructure = true;
+  structure.model = name;
   
-  Structure[name] = structure();
+  Structure[name] = structure;
   return structure;
 }
 
 export default {
   Document: Document,
   Structure: Structure,
-  Validators: Validation
+  Validators: Validation,
+  utils: {
+    compose: compose
+  }
 };
 
+window.Models = {
+  Document: Document,
+  Structure: Structure,
+  Validators: Validation,
+  utils: {
+    compose: compose
+  }
+};
 
 /**
 
