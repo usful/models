@@ -1,7 +1,12 @@
+import FBEmitter from 'fbemitter';
+const {EventEmitter} = FBEmitter;
+
 import TypedArray from './TypedArray';
 import Validation from './Validation';
 import ValidationError from './ValidationError';
 import compose from './compose';
+
+let onReady = () => null;
 
 function createModel(properties) {
   function model(data) {
@@ -11,6 +16,7 @@ function createModel(properties) {
     
     this.__data = {};
     this.__parent = null;
+    this.__parentKey = null;
     
     if (data) {
       for (let key in data) {
@@ -65,25 +71,26 @@ function createModel(properties) {
         return this.__data[prop.key];
       },
       set: function(val) {
-        this.__data[prop.key] = val;
-        
         // If this type is a model (deep object) or an array, we need to be able to propagate changes later.
-        if (prop.type.isModel || prop.type.isArray) {
-          //If we are un-setting this object, clear references.
-          if (val === null || val === undefined && this.__data[prop.key]) {
+        if (prop.type.isModel || prop.isArray) {
+          //We also need to clear parent values from the old values if they exist for garbage collection.
+          if (this.__data[prop.key]) {
             this.__data[prop.key].__parent = null;
-          } else if (val) {
-            if (prop.type.isArray && !val.isTypedArray()) {
+            this.__data[prop.key].__parentKey = null;
+          }
+          
+          
+          if (val !== null && val !== undefined) {
+            if (prop.isArray && !val.isTypedArray) {
               //This prop type is an array, and you are not setting a TypedArray, we will cast it for you.
-              val = new TypedArray(val);
+              val = new TypedArray(val, prop.type);
             } else if (prop.type.isModel && val.constructor !== prop.type) {
               //This value is a model, but it has not been created as a model yet.
               val = new prop.type(val);
             }
-            
+    
             val.__parent = this;
-            
-            this.__data[prop.key] = val;
+            val.__parentKey = prop.key;
           }
         }
         
@@ -96,7 +103,10 @@ function createModel(properties) {
     
     //Lazy load definitions to allow cyclic references
     if (typeof prop.type === 'string') {
-      setTimeout(() => prop.type = Document[prop.type] || Structure[prop.type], 1)
+      setTimeout(() => {
+        prop.type = Document[prop.type] || Structure[prop.type];
+        onReady();
+      }, 1);
     }
     
     model.def.props.push(prop);
@@ -157,23 +167,62 @@ function createModel(properties) {
       .forEach(prop => data[prop.key] = data[prop.key] ? data[prop.key].toJSON() : data[prop.key])
     ;
     
-    return this.__data;
+    return data;
   };
   
   model.prototype.__changed = function(key) {
     this.__data = {
       ... this.__data
     };
+  
+    //console.log(key, 'on', model.model, 'changed');
+
+    if (model.model === 'ViewBlock') {
+      console.log('parent', this.__parent, this.__parentKey);
+    }
     
-    this.onChange(key);
+    this.emit('change', key);
     
     if (this.__parent) {
-      this.__parent.__changed();
+      this.__parent.__changed(this.__parentKey);
     }
   };
   
-  model.prototype.onChange = function(key) {
-    /** no-op */
+  model.prototype._initEmitter = function() {
+    if (!this._emitter) {
+      this._emitter = new EventEmitter();
+    }
+  };
+  
+  model.prototype.listeners = function() {
+    this._initEmitter();
+    return this._emitter.listeners.apply(this._emitter, arguments);
+  };
+  
+  model.prototype.emit = function() {
+    if (!this._emitter) {
+      return;
+    }
+    
+    return this._emitter.emit.apply(this._emitter, arguments);
+  };
+  
+  model.prototype.once = function() {
+    this._initEmitter();
+    return this._emitter.once.apply(this._emitter, arguments);
+  };
+  
+  model.prototype.removeAllListeners = function() {
+    if (!this._emitter) {
+      return;
+    }
+    
+    return this._emitter.removeAllListeners.apply(this._emitter, arguments);
+  };
+  
+  model.prototype.addListener = function() {
+    this._initEmitter();
+    return this._emitter.addListener.apply(this._emitter, arguments);
   };
   
   model.isModel = true;
@@ -211,6 +260,7 @@ export default {
   Document: Document,
   Structure: Structure,
   Validators: Validation,
+  onReady: (cb) => onReady = cb,
   utils: {
     compose: compose
   }

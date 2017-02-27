@@ -1,3 +1,5 @@
+import FBEmitter from 'fbemitter';
+const {EventEmitter} = FBEmitter;
 
 const FUNCTIONS = ['sort', 'reverse', 'join', 'forEach', 'slice', 'concat', 'includes', 'reduce', 'map', 'filter', 'find', 'findIndex', 'some', 'indexOf'];
 
@@ -20,11 +22,21 @@ class TypedArrayIterator {
 export default class TypedArray {
   constructor(items, type) {
     this.__array = Array.isArray(items) ? [].concat(items) : [items];
+    this.__parent = null;
+    this.__parentKey = null;
     this.type = type;
     
     for (let i = 0; i < this.__array.length; i++) {
       this.defineIndexProperty(i);
     }
+    
+    //Cast any children.
+    if (this.isModel) {
+      this.__array = this.__array.map(item => !item || item.constructor === this.type ? item : new this.type(item));
+    }
+    
+    //Set any initial children.
+    this.setParents();
   }
 
   defineIndexProperty(index) {
@@ -37,13 +49,18 @@ export default class TypedArray {
         },
         set: function (val) {
           if (this.type.isModel) {
-            if (!val && this.__array[index]) {
+            //Clear out references for garbage collection
+            if (this.__array[index]) {
               this.__array[index].__parent = null;
-            } else if (val) {
+              this.__array[index].__parentKey = null;
+            }
+            
+            if (val) {
               val.__parent = this;
+              val.__parentKey = index;
             }
           }
-
+  
           this.__array[index] = val;
           this.__changed(index);
         }
@@ -51,27 +68,39 @@ export default class TypedArray {
     }
   }
   
-  get shouldSetParent() {
+  get isModel() {
     return this.type && this.type.isModel;
   }
   
+  setParents() {
+    if (this.isModel) {
+      for (let i=0; i<this.__array.length; i++) {
+        if (this.__array[i]) {
+          this.__array[i].__parent = this;
+          this.__array[i].__parentKey = i;
+        }
+      }
+    }
+  }
+  
   clearParents() {
-    for (let i=0; i<this.__array.length; i++) {
-      if (this.__array[i]) {
-        this.__array[i].__parent = null;
+    if (this.isModel) {
+      for (let i=0; i<this.__array.length; i++) {
+        if (this.__array[i]) {
+          this.__array[i].__parent = null;
+          this.__array[i].__parentKey = null;
+        }
       }
     }
   }
   
   __changed(index) {
     this.__array = [].concat(this.__array);
-  
-    if (this.onChange) {
-      this.onChange(index);
-    }
+
+    this.emit('change', index);
 
     if (this.__parent) {
-      this.__parent.__changed();
+      this.__parent.__changed(this.__parentKey);
     }
   }
 
@@ -88,22 +117,21 @@ export default class TypedArray {
   }
 
   push(item) {
-    if (this.shouldSetParent && item) {
-      item.__parent = this;
-    }
-    
     this.__array.push(item);
     this.defineIndexProperty(this.length - 1);
+    this.setParents();
     this.__changed(this.length - 1);
   }
 
   pop() {
     let item = this.__array.pop();
     
-    if (this.shouldSetParent && item) {
+    if (this.isModel && item) {
       item.__parent = null;
+      item.__parentKey = null;
     }
-    
+  
+    this.setParents();
     this.__changed(this.length);
     return item;
   }
@@ -113,22 +141,23 @@ export default class TypedArray {
 
     for (let i = 0; i < count; i++) {
       this.defineIndexProperty(this.length + i);
-      if (this.shouldSetParent && this.__array[i]) {
-        this.__array[i].__parent = this;
-      }
     }
   
+    this.setParents();
     this.__changed(0);
+  
     return count;
   }
 
   shift() {
     let item = this.__array.shift();
   
-    if (this.shouldSetParent && item) {
+    if (this.isModel && item) {
       item.__parent = null;
+      item.__parentKey = null;
     }
   
+    this.setParents();
     this.__changed(0);
     return item;
   }
@@ -140,8 +169,9 @@ export default class TypedArray {
     let removed = this.__array.splice.apply(this.__array, arguments);
 
     removed.forEach(item => {
-      if (this.shouldSetParent && item) {
+      if (this.isModel && item) {
         item.__parent = null;
+        this.__parentKey = null;
       }
     });
     
@@ -152,13 +182,6 @@ export default class TypedArray {
 
     if (toAdd) {
       lengthDelta += toAdd.length;
-  
-      toAdd.forEach(item => {
-        if (this.shouldSetParent && item) {
-          item.__parent = this;
-        }
-      });
-  
     }
 
     if (lengthDelta > 0) {
@@ -167,6 +190,8 @@ export default class TypedArray {
       }
     }
   
+    this.setParents();
+
     this.__changed(this.length);
     return removed;
   }
@@ -189,7 +214,11 @@ export default class TypedArray {
   }
   
   toJSON() {
-    return this.__array;
+    if (this.isModel) {
+      return this.__array.map(item => item ? item.toJSON() : null);
+    }
+    
+    return [].concat(this.__array);
   }
   
   /**
@@ -199,6 +228,43 @@ export default class TypedArray {
    */
   toArray() {
     return [].concat(this.__array);
+  }
+  
+  _initEmitter() {
+    if (!this._emitter) {
+      this._emitter = new EventEmitter();
+    }
+  }
+  
+  listeners() {
+    this._initEmitter();
+    return this._emitter.listeners.apply(this._emitter, arguments);
+  }
+  
+  emit() {
+    if (!this._emitter) {
+      return;
+    }
+
+    return this._emitter.emit.apply(this._emitter, arguments);
+  }
+  
+  once() {
+    this._initEmitter();
+    return this._emitter.once.apply(this._emitter, arguments);
+  }
+  
+  removeAllListeners() {
+    if (!this._emitter) {
+      return;
+    }
+
+    return this._emitter.removeAllListeners.apply(this._emitter, arguments);
+  }
+  
+  addListener() {
+    this._initEmitter();
+    return this._emitter.addListener.apply(this._emitter, arguments);
   }
 }
 

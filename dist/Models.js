@@ -81,7 +81,9 @@ return /******/ (function(modules) { // webpackBootstrap
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
-Object.defineProperty(exports,"__esModule",{value:true});var _createClass=function(){function defineProperties(target,props){for(var i=0;i<props.length;i++){var descriptor=props[i];descriptor.enumerable=descriptor.enumerable||false;descriptor.configurable=true;if("value"in descriptor)descriptor.writable=true;Object.defineProperty(target,descriptor.key,descriptor);}}return function(Constructor,protoProps,staticProps){if(protoProps)defineProperties(Constructor.prototype,protoProps);if(staticProps)defineProperties(Constructor,staticProps);return Constructor;};}();function _classCallCheck(instance,Constructor){if(!(instance instanceof Constructor)){throw new TypeError("Cannot call a class as a function");}}
+Object.defineProperty(exports,"__esModule",{value:true});var _createClass=function(){function defineProperties(target,props){for(var i=0;i<props.length;i++){var descriptor=props[i];descriptor.enumerable=descriptor.enumerable||false;descriptor.configurable=true;if("value"in descriptor)descriptor.writable=true;Object.defineProperty(target,descriptor.key,descriptor);}}return function(Constructor,protoProps,staticProps){if(protoProps)defineProperties(Constructor.prototype,protoProps);if(staticProps)defineProperties(Constructor,staticProps);return Constructor;};}();var _fbemitter=__webpack_require__(18);var _fbemitter2=_interopRequireDefault(_fbemitter);function _interopRequireDefault(obj){return obj&&obj.__esModule?obj:{default:obj};}function _classCallCheck(instance,Constructor){if(!(instance instanceof Constructor)){throw new TypeError("Cannot call a class as a function");}}var
+EventEmitter=_fbemitter2.default.EventEmitter;
+
 var FUNCTIONS=['sort','reverse','join','forEach','slice','concat','includes','reduce','map','filter','find','findIndex','some','indexOf'];var
 
 TypedArrayIterator=function(){
@@ -101,13 +103,23 @@ return{done:false,value:this.array[this.i++]};
 
 
 TypedArray=function(){
-function TypedArray(items,type){_classCallCheck(this,TypedArray);
+function TypedArray(items,type){var _this=this;_classCallCheck(this,TypedArray);
 this.__array=Array.isArray(items)?[].concat(items):[items];
+this.__parent=null;
+this.__parentKey=null;
 this.type=type;
 
 for(var i=0;i<this.__array.length;i++){
 this.defineIndexProperty(i);
 }
+
+
+if(this.isModel){
+this.__array=this.__array.map(function(item){return!item||item.constructor===_this.type?item:new _this.type(item);});
+}
+
+
+this.setParents();
 }_createClass(TypedArray,[{key:'defineIndexProperty',value:function defineIndexProperty(
 
 index){
@@ -120,10 +132,15 @@ return this.__array[index];
 },
 set:function set(val){
 if(this.type.isModel){
-if(!val&&this.__array[index]){
+
+if(this.__array[index]){
 this.__array[index].__parent=null;
-}else if(val){
+this.__array[index].__parentKey=null;
+}
+
+if(val){
 val.__parent=this;
+val.__parentKey=index;
 }
 }
 
@@ -132,16 +149,30 @@ this.__changed(index);
 }});
 
 }
-}},{key:'clearParents',value:function clearParents()
+}},{key:'setParents',value:function setParents()
 
 
 
 
 
 {
+if(this.isModel){
+for(var i=0;i<this.__array.length;i++){
+if(this.__array[i]){
+this.__array[i].__parent=this;
+this.__array[i].__parentKey=i;
+}
+}
+}
+}},{key:'clearParents',value:function clearParents()
+
+{
+if(this.isModel){
 for(var i=0;i<this.__array.length;i++){
 if(this.__array[i]){
 this.__array[i].__parent=null;
+this.__array[i].__parentKey=null;
+}
 }
 }
 }},{key:'__changed',value:function __changed(
@@ -149,12 +180,10 @@ this.__array[i].__parent=null;
 index){
 this.__array=[].concat(this.__array);
 
-if(this.onChange){
-this.onChange(index);
-}
+this.emit('change',index);
 
 if(this.__parent){
-this.__parent.__changed();
+this.__parent.__changed(this.__parentKey);
 }
 }},{key:typeof Symbol==='function'?
 
@@ -171,22 +200,21 @@ return new TypedArrayIterator(this);
 
 
 item){
-if(this.shouldSetParent&&item){
-item.__parent=this;
-}
-
 this.__array.push(item);
 this.defineIndexProperty(this.length-1);
+this.setParents();
 this.__changed(this.length-1);
 }},{key:'pop',value:function pop()
 
 {
 var item=this.__array.pop();
 
-if(this.shouldSetParent&&item){
+if(this.isModel&&item){
 item.__parent=null;
+item.__parentKey=null;
 }
 
+this.setParents();
 this.__changed(this.length);
 return item;
 }},{key:'unshift',value:function unshift()
@@ -196,35 +224,37 @@ var count=this.__array.unshift.apply(this.__array,arguments);
 
 for(var i=0;i<count;i++){
 this.defineIndexProperty(this.length+i);
-if(this.shouldSetParent&&this.__array[i]){
-this.__array[i].__parent=this;
-}
 }
 
+this.setParents();
 this.__changed(0);
+
 return count;
 }},{key:'shift',value:function shift()
 
 {
 var item=this.__array.shift();
 
-if(this.shouldSetParent&&item){
+if(this.isModel&&item){
 item.__parent=null;
+item.__parentKey=null;
 }
 
+this.setParents();
 this.__changed(0);
 return item;
 }},{key:'splice',value:function splice()
 
-{var _this=this;
+{var _this2=this;
 
 
 
 var removed=this.__array.splice.apply(this.__array,arguments);
 
 removed.forEach(function(item){
-if(_this.shouldSetParent&&item){
+if(_this2.isModel&&item){
 item.__parent=null;
+_this2.__parentKey=null;
 }
 });
 
@@ -235,13 +265,6 @@ var toAdd=Array.prototype.slice.call(arguments,2);
 
 if(toAdd){
 lengthDelta+=toAdd.length;
-
-toAdd.forEach(function(item){
-if(_this.shouldSetParent&&item){
-item.__parent=_this;
-}
-});
-
 }
 
 if(lengthDelta>0){
@@ -249,6 +272,8 @@ for(var i=0;i<lengthDelta;i++){
 this.defineIndexProperty(this.length-1-i);
 }
 }
+
+this.setParents();
 
 this.__changed(this.length);
 return removed;
@@ -272,7 +297,11 @@ return this.__array;
 }},{key:'toJSON',value:function toJSON()
 
 {
-return this.__array;
+if(this.isModel){
+return this.__array.map(function(item){return item?item.toJSON():null;});
+}
+
+return[].concat(this.__array);
 }},{key:'toArray',value:function toArray()
 
 
@@ -282,7 +311,44 @@ return this.__array;
 
 {
 return[].concat(this.__array);
-}},{key:'shouldSetParent',get:function get(){return this.type&&this.type.isModel;}},{key:'length',get:function get(){return this.__array.length;}},{key:'isTypedArray',get:function get(){return true;}}],[{key:'isTypedArray',value:function isTypedArray(obj){return!obj?false:this===obj.constructor;}},{key:'isArray',value:function isArray(obj){return Array.isArray(obj);}}]);return TypedArray;}();exports.default=TypedArray;
+}},{key:'_initEmitter',value:function _initEmitter()
+
+{
+if(!this._emitter){
+this._emitter=new EventEmitter();
+}
+}},{key:'listeners',value:function listeners()
+
+{
+this._initEmitter();
+return this._emitter.listeners.apply(this._emitter,arguments);
+}},{key:'emit',value:function emit()
+
+{
+if(!this._emitter){
+return;
+}
+
+return this._emitter.emit.apply(this._emitter,arguments);
+}},{key:'once',value:function once()
+
+{
+this._initEmitter();
+return this._emitter.once.apply(this._emitter,arguments);
+}},{key:'removeAllListeners',value:function removeAllListeners()
+
+{
+if(!this._emitter){
+return;
+}
+
+return this._emitter.removeAllListeners.apply(this._emitter,arguments);
+}},{key:'addListener',value:function addListener()
+
+{
+this._initEmitter();
+return this._emitter.addListener.apply(this._emitter,arguments);
+}},{key:'isModel',get:function get(){return this.type&&this.type.isModel;}},{key:'length',get:function get(){return this.__array.length;}},{key:'isTypedArray',get:function get(){return true;}}],[{key:'isTypedArray',value:function isTypedArray(obj){return!obj?false:this===obj.constructor;}},{key:'isArray',value:function isArray(obj){return Array.isArray(obj);}}]);return TypedArray;}();exports.default=TypedArray;
 
 
 FUNCTIONS.forEach(function(f){return TypedArray.prototype[f]=function(){return this.__array[f].apply(this.__array,arguments);};});
@@ -598,10 +664,15 @@ name:'required'};
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
-Object.defineProperty(exports,"__esModule",{value:true});var _extends=Object.assign||function(target){for(var i=1;i<arguments.length;i++){var source=arguments[i];for(var key in source){if(Object.prototype.hasOwnProperty.call(source,key)){target[key]=source[key];}}}return target;};var _TypedArray=__webpack_require__(0);var _TypedArray2=_interopRequireDefault(_TypedArray);
+Object.defineProperty(exports,"__esModule",{value:true});var _extends=Object.assign||function(target){for(var i=1;i<arguments.length;i++){var source=arguments[i];for(var key in source){if(Object.prototype.hasOwnProperty.call(source,key)){target[key]=source[key];}}}return target;};var _fbemitter=__webpack_require__(18);var _fbemitter2=_interopRequireDefault(_fbemitter);
+
+
+var _TypedArray=__webpack_require__(0);var _TypedArray2=_interopRequireDefault(_TypedArray);
 var _Validation=__webpack_require__(1);var _Validation2=_interopRequireDefault(_Validation);
 var _ValidationError=__webpack_require__(2);var _ValidationError2=_interopRequireDefault(_ValidationError);
-var _compose=__webpack_require__(3);var _compose2=_interopRequireDefault(_compose);function _interopRequireDefault(obj){return obj&&obj.__esModule?obj:{default:obj};}
+var _compose=__webpack_require__(3);var _compose2=_interopRequireDefault(_compose);function _interopRequireDefault(obj){return obj&&obj.__esModule?obj:{default:obj};}var EventEmitter=_fbemitter2.default.EventEmitter;
+
+var _onReady=function onReady(){return null;};
 
 function createModel(properties){
 function model(data){
@@ -611,6 +682,7 @@ throw new Error('Must be invoked with new.');
 
 this.__data={};
 this.__parent=null;
+this.__parentKey=null;
 
 if(data){
 for(var key in data){
@@ -665,25 +737,26 @@ get:function get(){
 return this.__data[prop.key];
 },
 set:function set(val){
-this.__data[prop.key]=val;
 
+if(prop.type.isModel||prop.isArray){
 
-if(prop.type.isModel||prop.type.isArray){
-
-if(val===null||val===undefined&&this.__data[prop.key]){
+if(this.__data[prop.key]){
 this.__data[prop.key].__parent=null;
-}else if(val){
-if(prop.type.isArray&&!val.isTypedArray()){
+this.__data[prop.key].__parentKey=null;
+}
 
-val=new _TypedArray2.default(val);
+
+if(val!==null&&val!==undefined){
+if(prop.isArray&&!val.isTypedArray){
+
+val=new _TypedArray2.default(val,prop.type);
 }else if(prop.type.isModel&&val.constructor!==prop.type){
 
 val=new prop.type(val);
 }
 
 val.__parent=this;
-
-this.__data[prop.key]=val;
+val.__parentKey=prop.key;
 }
 }
 
@@ -696,7 +769,10 @@ enumerable:true});
 
 
 if(typeof prop.type==='string'){
-setTimeout(function(){return prop.type=Document[prop.type]||Structure[prop.type];},1);
+setTimeout(function(){
+prop.type=Document[prop.type]||Structure[prop.type];
+_onReady();
+},1);
 }
 
 model.def.props.push(prop);};for(var key in properties){_loop(key);
@@ -757,7 +833,7 @@ filter(function(prop){return prop.type.isModel;}).
 forEach(function(prop){return data[prop.key]=data[prop.key]?data[prop.key].toJSON():data[prop.key];});
 
 
-return this.__data;
+return data;
 };
 
 model.prototype.__changed=function(key){
@@ -765,15 +841,54 @@ this.__data=_extends({},
 this.__data);
 
 
-this.onChange(key);
+
+
+if(model.model==='ViewBlock'){
+console.log('parent',this.__parent,this.__parentKey);
+}
+
+this.emit('change',key);
 
 if(this.__parent){
-this.__parent.__changed();
+this.__parent.__changed(this.__parentKey);
 }
 };
 
-model.prototype.onChange=function(key){
+model.prototype._initEmitter=function(){
+if(!this._emitter){
+this._emitter=new EventEmitter();
+}
+};
 
+model.prototype.listeners=function(){
+this._initEmitter();
+return this._emitter.listeners.apply(this._emitter,arguments);
+};
+
+model.prototype.emit=function(){
+if(!this._emitter){
+return;
+}
+
+return this._emitter.emit.apply(this._emitter,arguments);
+};
+
+model.prototype.once=function(){
+this._initEmitter();
+return this._emitter.once.apply(this._emitter,arguments);
+};
+
+model.prototype.removeAllListeners=function(){
+if(!this._emitter){
+return;
+}
+
+return this._emitter.removeAllListeners.apply(this._emitter,arguments);
+};
+
+model.prototype.addListener=function(){
+this._initEmitter();
+return this._emitter.addListener.apply(this._emitter,arguments);
 };
 
 model.isModel=true;
@@ -811,6 +926,7 @@ return structure;
 Document:Document,
 Structure:Structure,
 Validators:_Validation2.default,
+onReady:function onReady(cb){return _onReady=cb;},
 utils:{
 compose:_compose2.default}};
 
@@ -822,6 +938,736 @@ Structure:Structure,
 Validators:_Validation2.default,
 utils:{
 compose:_compose2.default}};
+
+/***/ }),
+/* 15 */
+/***/ (function(module, exports) {
+
+// shim for using process in browser
+var process = module.exports = {};
+
+// cached from whatever global is present so that test runners that stub it
+// don't break things.  But we need to wrap it in a try catch in case it is
+// wrapped in strict mode code which doesn't define any globals.  It's inside a
+// function because try/catches deoptimize in certain engines.
+
+var cachedSetTimeout;
+var cachedClearTimeout;
+
+function defaultSetTimout() {
+    throw new Error('setTimeout has not been defined');
+}
+function defaultClearTimeout () {
+    throw new Error('clearTimeout has not been defined');
+}
+(function () {
+    try {
+        if (typeof setTimeout === 'function') {
+            cachedSetTimeout = setTimeout;
+        } else {
+            cachedSetTimeout = defaultSetTimout;
+        }
+    } catch (e) {
+        cachedSetTimeout = defaultSetTimout;
+    }
+    try {
+        if (typeof clearTimeout === 'function') {
+            cachedClearTimeout = clearTimeout;
+        } else {
+            cachedClearTimeout = defaultClearTimeout;
+        }
+    } catch (e) {
+        cachedClearTimeout = defaultClearTimeout;
+    }
+} ())
+function runTimeout(fun) {
+    if (cachedSetTimeout === setTimeout) {
+        //normal enviroments in sane situations
+        return setTimeout(fun, 0);
+    }
+    // if setTimeout wasn't available but was latter defined
+    if ((cachedSetTimeout === defaultSetTimout || !cachedSetTimeout) && setTimeout) {
+        cachedSetTimeout = setTimeout;
+        return setTimeout(fun, 0);
+    }
+    try {
+        // when when somebody has screwed with setTimeout but no I.E. maddness
+        return cachedSetTimeout(fun, 0);
+    } catch(e){
+        try {
+            // When we are in I.E. but the script has been evaled so I.E. doesn't trust the global object when called normally
+            return cachedSetTimeout.call(null, fun, 0);
+        } catch(e){
+            // same as above but when it's a version of I.E. that must have the global object for 'this', hopfully our context correct otherwise it will throw a global error
+            return cachedSetTimeout.call(this, fun, 0);
+        }
+    }
+
+
+}
+function runClearTimeout(marker) {
+    if (cachedClearTimeout === clearTimeout) {
+        //normal enviroments in sane situations
+        return clearTimeout(marker);
+    }
+    // if clearTimeout wasn't available but was latter defined
+    if ((cachedClearTimeout === defaultClearTimeout || !cachedClearTimeout) && clearTimeout) {
+        cachedClearTimeout = clearTimeout;
+        return clearTimeout(marker);
+    }
+    try {
+        // when when somebody has screwed with setTimeout but no I.E. maddness
+        return cachedClearTimeout(marker);
+    } catch (e){
+        try {
+            // When we are in I.E. but the script has been evaled so I.E. doesn't  trust the global object when called normally
+            return cachedClearTimeout.call(null, marker);
+        } catch (e){
+            // same as above but when it's a version of I.E. that must have the global object for 'this', hopfully our context correct otherwise it will throw a global error.
+            // Some versions of I.E. have different rules for clearTimeout vs setTimeout
+            return cachedClearTimeout.call(this, marker);
+        }
+    }
+
+
+
+}
+var queue = [];
+var draining = false;
+var currentQueue;
+var queueIndex = -1;
+
+function cleanUpNextTick() {
+    if (!draining || !currentQueue) {
+        return;
+    }
+    draining = false;
+    if (currentQueue.length) {
+        queue = currentQueue.concat(queue);
+    } else {
+        queueIndex = -1;
+    }
+    if (queue.length) {
+        drainQueue();
+    }
+}
+
+function drainQueue() {
+    if (draining) {
+        return;
+    }
+    var timeout = runTimeout(cleanUpNextTick);
+    draining = true;
+
+    var len = queue.length;
+    while(len) {
+        currentQueue = queue;
+        queue = [];
+        while (++queueIndex < len) {
+            if (currentQueue) {
+                currentQueue[queueIndex].run();
+            }
+        }
+        queueIndex = -1;
+        len = queue.length;
+    }
+    currentQueue = null;
+    draining = false;
+    runClearTimeout(timeout);
+}
+
+process.nextTick = function (fun) {
+    var args = new Array(arguments.length - 1);
+    if (arguments.length > 1) {
+        for (var i = 1; i < arguments.length; i++) {
+            args[i - 1] = arguments[i];
+        }
+    }
+    queue.push(new Item(fun, args));
+    if (queue.length === 1 && !draining) {
+        runTimeout(drainQueue);
+    }
+};
+
+// v8 likes predictible objects
+function Item(fun, array) {
+    this.fun = fun;
+    this.array = array;
+}
+Item.prototype.run = function () {
+    this.fun.apply(null, this.array);
+};
+process.title = 'browser';
+process.browser = true;
+process.env = {};
+process.argv = [];
+process.version = ''; // empty string to avoid regexp issues
+process.versions = {};
+
+function noop() {}
+
+process.on = noop;
+process.addListener = noop;
+process.once = noop;
+process.off = noop;
+process.removeListener = noop;
+process.removeAllListeners = noop;
+process.emit = noop;
+
+process.binding = function (name) {
+    throw new Error('process.binding is not supported');
+};
+
+process.cwd = function () { return '/' };
+process.chdir = function (dir) {
+    throw new Error('process.chdir is not supported');
+};
+process.umask = function() { return 0; };
+
+
+/***/ }),
+/* 16 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+/**
+ * Copyright (c) 2014-present, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ * 
+ * @providesModule EmitterSubscription
+ * @typechecks
+ */
+
+
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError('Cannot call a class as a function'); } }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== 'function' && superClass !== null) { throw new TypeError('Super expression must either be null or a function, not ' + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var EventSubscription = __webpack_require__(20);
+
+/**
+ * EmitterSubscription represents a subscription with listener and context data.
+ */
+
+var EmitterSubscription = (function (_EventSubscription) {
+  _inherits(EmitterSubscription, _EventSubscription);
+
+  /**
+   * @param {EventSubscriptionVendor} subscriber - The subscriber that controls
+   *   this subscription
+   * @param {function} listener - Function to invoke when the specified event is
+   *   emitted
+   * @param {*} context - Optional context object to use when invoking the
+   *   listener
+   */
+
+  function EmitterSubscription(subscriber, listener, context) {
+    _classCallCheck(this, EmitterSubscription);
+
+    _EventSubscription.call(this, subscriber);
+    this.listener = listener;
+    this.context = context;
+  }
+
+  return EmitterSubscription;
+})(EventSubscription);
+
+module.exports = EmitterSubscription;
+
+/***/ }),
+/* 17 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+/* WEBPACK VAR INJECTION */(function(process) {/**
+ * Copyright (c) 2013-present, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ */
+
+
+
+/**
+ * Use invariant() to assert state which your program assumes to be true.
+ *
+ * Provide sprintf-style format (only %s is supported) and arguments
+ * to provide information about what broke and what you were
+ * expecting.
+ *
+ * The invariant message will be stripped in production, but the invariant
+ * will remain to ensure logic does not differ in production.
+ */
+
+var validateFormat = function validateFormat(format) {};
+
+if (process.env.NODE_ENV !== 'production') {
+  validateFormat = function validateFormat(format) {
+    if (format === undefined) {
+      throw new Error('invariant requires an error message argument');
+    }
+  };
+}
+
+function invariant(condition, format, a, b, c, d, e, f) {
+  validateFormat(format);
+
+  if (!condition) {
+    var error;
+    if (format === undefined) {
+      error = new Error('Minified exception occurred; use the non-minified dev environment ' + 'for the full error message and additional helpful warnings.');
+    } else {
+      var args = [a, b, c, d, e, f];
+      var argIndex = 0;
+      error = new Error(format.replace(/%s/g, function () {
+        return args[argIndex++];
+      }));
+      error.name = 'Invariant Violation';
+    }
+
+    error.framesToPop = 1; // we don't care about invariant's own frame
+    throw error;
+  }
+}
+
+module.exports = invariant;
+/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(15)))
+
+/***/ }),
+/* 18 */
+/***/ (function(module, exports, __webpack_require__) {
+
+/**
+ * Copyright (c) 2014-present, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ */
+
+var fbemitter = {
+  EventEmitter: __webpack_require__(19),
+  EmitterSubscription : __webpack_require__(16)
+};
+
+module.exports = fbemitter;
+
+
+/***/ }),
+/* 19 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+/* WEBPACK VAR INJECTION */(function(process) {/**
+ * Copyright (c) 2014-present, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule BaseEventEmitter
+ * @typechecks
+ */
+
+
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError('Cannot call a class as a function'); } }
+
+var EmitterSubscription = __webpack_require__(16);
+var EventSubscriptionVendor = __webpack_require__(21);
+
+var emptyFunction = __webpack_require__(22);
+var invariant = __webpack_require__(17);
+
+/**
+ * @class BaseEventEmitter
+ * @description
+ * An EventEmitter is responsible for managing a set of listeners and publishing
+ * events to them when it is told that such events happened. In addition to the
+ * data for the given event it also sends a event control object which allows
+ * the listeners/handlers to prevent the default behavior of the given event.
+ *
+ * The emitter is designed to be generic enough to support all the different
+ * contexts in which one might want to emit events. It is a simple multicast
+ * mechanism on top of which extra functionality can be composed. For example, a
+ * more advanced emitter may use an EventHolder and EventFactory.
+ */
+
+var BaseEventEmitter = (function () {
+  /**
+   * @constructor
+   */
+
+  function BaseEventEmitter() {
+    _classCallCheck(this, BaseEventEmitter);
+
+    this._subscriber = new EventSubscriptionVendor();
+    this._currentSubscription = null;
+  }
+
+  /**
+   * Adds a listener to be invoked when events of the specified type are
+   * emitted. An optional calling context may be provided. The data arguments
+   * emitted will be passed to the listener function.
+   *
+   * TODO: Annotate the listener arg's type. This is tricky because listeners
+   *       can be invoked with varargs.
+   *
+   * @param {string} eventType - Name of the event to listen to
+   * @param {function} listener - Function to invoke when the specified event is
+   *   emitted
+   * @param {*} context - Optional context object to use when invoking the
+   *   listener
+   */
+
+  BaseEventEmitter.prototype.addListener = function addListener(eventType, listener, context) {
+    return this._subscriber.addSubscription(eventType, new EmitterSubscription(this._subscriber, listener, context));
+  };
+
+  /**
+   * Similar to addListener, except that the listener is removed after it is
+   * invoked once.
+   *
+   * @param {string} eventType - Name of the event to listen to
+   * @param {function} listener - Function to invoke only once when the
+   *   specified event is emitted
+   * @param {*} context - Optional context object to use when invoking the
+   *   listener
+   */
+
+  BaseEventEmitter.prototype.once = function once(eventType, listener, context) {
+    var emitter = this;
+    return this.addListener(eventType, function () {
+      emitter.removeCurrentListener();
+      listener.apply(context, arguments);
+    });
+  };
+
+  /**
+   * Removes all of the registered listeners, including those registered as
+   * listener maps.
+   *
+   * @param {?string} eventType - Optional name of the event whose registered
+   *   listeners to remove
+   */
+
+  BaseEventEmitter.prototype.removeAllListeners = function removeAllListeners(eventType) {
+    this._subscriber.removeAllSubscriptions(eventType);
+  };
+
+  /**
+   * Provides an API that can be called during an eventing cycle to remove the
+   * last listener that was invoked. This allows a developer to provide an event
+   * object that can remove the listener (or listener map) during the
+   * invocation.
+   *
+   * If it is called when not inside of an emitting cycle it will throw.
+   *
+   * @throws {Error} When called not during an eventing cycle
+   *
+   * @example
+   *   var subscription = emitter.addListenerMap({
+   *     someEvent: function(data, event) {
+   *       console.log(data);
+   *       emitter.removeCurrentListener();
+   *     }
+   *   });
+   *
+   *   emitter.emit('someEvent', 'abc'); // logs 'abc'
+   *   emitter.emit('someEvent', 'def'); // does not log anything
+   */
+
+  BaseEventEmitter.prototype.removeCurrentListener = function removeCurrentListener() {
+    !!!this._currentSubscription ? process.env.NODE_ENV !== 'production' ? invariant(false, 'Not in an emitting cycle; there is no current subscription') : invariant(false) : undefined;
+    this._subscriber.removeSubscription(this._currentSubscription);
+  };
+
+  /**
+   * Returns an array of listeners that are currently registered for the given
+   * event.
+   *
+   * @param {string} eventType - Name of the event to query
+   * @return {array}
+   */
+
+  BaseEventEmitter.prototype.listeners = function listeners(eventType) /* TODO: Array<EventSubscription> */{
+    var subscriptions = this._subscriber.getSubscriptionsForType(eventType);
+    return subscriptions ? subscriptions.filter(emptyFunction.thatReturnsTrue).map(function (subscription) {
+      return subscription.listener;
+    }) : [];
+  };
+
+  /**
+   * Emits an event of the given type with the given data. All handlers of that
+   * particular type will be notified.
+   *
+   * @param {string} eventType - Name of the event to emit
+   * @param {*} Arbitrary arguments to be passed to each registered listener
+   *
+   * @example
+   *   emitter.addListener('someEvent', function(message) {
+   *     console.log(message);
+   *   });
+   *
+   *   emitter.emit('someEvent', 'abc'); // logs 'abc'
+   */
+
+  BaseEventEmitter.prototype.emit = function emit(eventType) {
+    var subscriptions = this._subscriber.getSubscriptionsForType(eventType);
+    if (subscriptions) {
+      var keys = Object.keys(subscriptions);
+      for (var ii = 0; ii < keys.length; ii++) {
+        var key = keys[ii];
+        var subscription = subscriptions[key];
+        // The subscription may have been removed during this event loop.
+        if (subscription) {
+          this._currentSubscription = subscription;
+          this.__emitToSubscription.apply(this, [subscription].concat(Array.prototype.slice.call(arguments)));
+        }
+      }
+      this._currentSubscription = null;
+    }
+  };
+
+  /**
+   * Provides a hook to override how the emitter emits an event to a specific
+   * subscription. This allows you to set up logging and error boundaries
+   * specific to your environment.
+   *
+   * @param {EmitterSubscription} subscription
+   * @param {string} eventType
+   * @param {*} Arbitrary arguments to be passed to each registered listener
+   */
+
+  BaseEventEmitter.prototype.__emitToSubscription = function __emitToSubscription(subscription, eventType) {
+    var args = Array.prototype.slice.call(arguments, 2);
+    subscription.listener.apply(subscription.context, args);
+  };
+
+  return BaseEventEmitter;
+})();
+
+module.exports = BaseEventEmitter;
+/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(15)))
+
+/***/ }),
+/* 20 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+/**
+ * Copyright (c) 2014-present, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule EventSubscription
+ * @typechecks
+ */
+
+
+
+/**
+ * EventSubscription represents a subscription to a particular event. It can
+ * remove its own subscription.
+ */
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError('Cannot call a class as a function'); } }
+
+var EventSubscription = (function () {
+
+  /**
+   * @param {EventSubscriptionVendor} subscriber the subscriber that controls
+   *   this subscription.
+   */
+
+  function EventSubscription(subscriber) {
+    _classCallCheck(this, EventSubscription);
+
+    this.subscriber = subscriber;
+  }
+
+  /**
+   * Removes this subscription from the subscriber that controls it.
+   */
+
+  EventSubscription.prototype.remove = function remove() {
+    if (this.subscriber) {
+      this.subscriber.removeSubscription(this);
+      this.subscriber = null;
+    }
+  };
+
+  return EventSubscription;
+})();
+
+module.exports = EventSubscription;
+
+/***/ }),
+/* 21 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+/* WEBPACK VAR INJECTION */(function(process) {/**
+ * Copyright (c) 2014-present, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ * 
+ * @providesModule EventSubscriptionVendor
+ * @typechecks
+ */
+
+
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError('Cannot call a class as a function'); } }
+
+var invariant = __webpack_require__(17);
+
+/**
+ * EventSubscriptionVendor stores a set of EventSubscriptions that are
+ * subscribed to a particular event type.
+ */
+
+var EventSubscriptionVendor = (function () {
+  function EventSubscriptionVendor() {
+    _classCallCheck(this, EventSubscriptionVendor);
+
+    this._subscriptionsForType = {};
+    this._currentSubscription = null;
+  }
+
+  /**
+   * Adds a subscription keyed by an event type.
+   *
+   * @param {string} eventType
+   * @param {EventSubscription} subscription
+   */
+
+  EventSubscriptionVendor.prototype.addSubscription = function addSubscription(eventType, subscription) {
+    !(subscription.subscriber === this) ? process.env.NODE_ENV !== 'production' ? invariant(false, 'The subscriber of the subscription is incorrectly set.') : invariant(false) : undefined;
+    if (!this._subscriptionsForType[eventType]) {
+      this._subscriptionsForType[eventType] = [];
+    }
+    var key = this._subscriptionsForType[eventType].length;
+    this._subscriptionsForType[eventType].push(subscription);
+    subscription.eventType = eventType;
+    subscription.key = key;
+    return subscription;
+  };
+
+  /**
+   * Removes a bulk set of the subscriptions.
+   *
+   * @param {?string} eventType - Optional name of the event type whose
+   *   registered supscriptions to remove, if null remove all subscriptions.
+   */
+
+  EventSubscriptionVendor.prototype.removeAllSubscriptions = function removeAllSubscriptions(eventType) {
+    if (eventType === undefined) {
+      this._subscriptionsForType = {};
+    } else {
+      delete this._subscriptionsForType[eventType];
+    }
+  };
+
+  /**
+   * Removes a specific subscription. Instead of calling this function, call
+   * `subscription.remove()` directly.
+   *
+   * @param {object} subscription
+   */
+
+  EventSubscriptionVendor.prototype.removeSubscription = function removeSubscription(subscription) {
+    var eventType = subscription.eventType;
+    var key = subscription.key;
+
+    var subscriptionsForType = this._subscriptionsForType[eventType];
+    if (subscriptionsForType) {
+      delete subscriptionsForType[key];
+    }
+  };
+
+  /**
+   * Returns the array of subscriptions that are currently registered for the
+   * given event type.
+   *
+   * Note: This array can be potentially sparse as subscriptions are deleted
+   * from it when they are removed.
+   *
+   * TODO: This returns a nullable array. wat?
+   *
+   * @param {string} eventType
+   * @return {?array}
+   */
+
+  EventSubscriptionVendor.prototype.getSubscriptionsForType = function getSubscriptionsForType(eventType) {
+    return this._subscriptionsForType[eventType];
+  };
+
+  return EventSubscriptionVendor;
+})();
+
+module.exports = EventSubscriptionVendor;
+/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(15)))
+
+/***/ }),
+/* 22 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+/**
+ * Copyright (c) 2013-present, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * 
+ */
+
+function makeEmptyFunction(arg) {
+  return function () {
+    return arg;
+  };
+}
+
+/**
+ * This function accepts and discards inputs; it has no side effects. This is
+ * primarily useful idiomatically for overridable function endpoints which
+ * always need to be callable, since JS lacks a null-call idiom ala Cocoa.
+ */
+var emptyFunction = function emptyFunction() {};
+
+emptyFunction.thatReturns = makeEmptyFunction;
+emptyFunction.thatReturnsFalse = makeEmptyFunction(false);
+emptyFunction.thatReturnsTrue = makeEmptyFunction(true);
+emptyFunction.thatReturnsNull = makeEmptyFunction(null);
+emptyFunction.thatReturnsThis = function () {
+  return this;
+};
+emptyFunction.thatReturnsArgument = function (arg) {
+  return arg;
+};
+
+module.exports = emptyFunction;
 
 /***/ })
 /******/ ]);
