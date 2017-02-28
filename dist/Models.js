@@ -73,874 +73,11 @@ return /******/ (function(modules) { // webpackBootstrap
 /******/ 	__webpack_require__.p = "";
 /******/
 /******/ 	// Load entry module and return exports
-/******/ 	return __webpack_require__(__webpack_require__.s = 14);
+/******/ 	return __webpack_require__(__webpack_require__.s = 22);
 /******/ })
 /************************************************************************/
 /******/ ([
 /* 0 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-Object.defineProperty(exports,"__esModule",{value:true});var _createClass=function(){function defineProperties(target,props){for(var i=0;i<props.length;i++){var descriptor=props[i];descriptor.enumerable=descriptor.enumerable||false;descriptor.configurable=true;if("value"in descriptor)descriptor.writable=true;Object.defineProperty(target,descriptor.key,descriptor);}}return function(Constructor,protoProps,staticProps){if(protoProps)defineProperties(Constructor.prototype,protoProps);if(staticProps)defineProperties(Constructor,staticProps);return Constructor;};}();var _fbemitter=__webpack_require__(18);var _fbemitter2=_interopRequireDefault(_fbemitter);function _interopRequireDefault(obj){return obj&&obj.__esModule?obj:{default:obj};}function _classCallCheck(instance,Constructor){if(!(instance instanceof Constructor)){throw new TypeError("Cannot call a class as a function");}}var
-EventEmitter=_fbemitter2.default.EventEmitter;
-
-var FUNCTIONS=['sort','reverse','join','forEach','slice','concat','includes','reduce','map','filter','find','findIndex','some','indexOf'];var
-
-TypedArrayIterator=function(){
-function TypedArrayIterator(array){_classCallCheck(this,TypedArrayIterator);
-this.i=0;
-this.array=array;
-}_createClass(TypedArrayIterator,[{key:'next',value:function next()
-
-{
-if(this.i>=this.array.length){
-this.i=0;
-return{done:true};
-}
-
-return{done:false,value:this.array[this.i++]};
-}}]);return TypedArrayIterator;}();var
-
-
-TypedArray=function(){
-function TypedArray(items,type){var _this=this;_classCallCheck(this,TypedArray);
-this.__array=Array.isArray(items)?[].concat(items):[items];
-this.__parent=null;
-this.__parentKey=null;
-this.type=type;
-
-for(var i=0;i<this.__array.length;i++){
-this.defineIndexProperty(i);
-}
-
-
-if(this.isModel){
-this.__array=this.__array.map(function(item){return!item||item.constructor===_this.type?item:new _this.type(item);});
-}
-
-
-this.setParents();
-}_createClass(TypedArray,[{key:'defineIndexProperty',value:function defineIndexProperty(
-
-index){
-if(!(index in this)){
-Object.defineProperty(this,index,{
-configurable:true,
-enumerable:true,
-get:function get(){
-return this.__array[index];
-},
-set:function set(val){
-if(this.type.isModel){
-
-if(this.__array[index]){
-this.__array[index].__parent=null;
-this.__array[index].__parentKey=null;
-}
-
-if(val){
-val.__parent=this;
-val.__parentKey=index;
-}
-}
-
-this.__array[index]=val;
-this.__changed(index);
-}});
-
-}
-}},{key:'setParents',value:function setParents()
-
-
-
-
-
-{
-if(this.isModel){
-for(var i=0;i<this.__array.length;i++){
-if(this.__array[i]){
-this.__array[i].__parent=this;
-this.__array[i].__parentKey=i;
-}
-}
-}
-}},{key:'clearParents',value:function clearParents()
-
-{
-if(this.isModel){
-for(var i=0;i<this.__array.length;i++){
-if(this.__array[i]){
-this.__array[i].__parent=null;
-this.__array[i].__parentKey=null;
-}
-}
-}
-}},{key:'__changed',value:function __changed(
-
-index){
-this.__array=[].concat(this.__array);
-
-this.emit('change',index);
-
-if(this.__parent){
-this.__parent.__changed(this.__parentKey);
-}
-}},{key:typeof Symbol==='function'?
-
-
-
-
-
-Symbol.iterator:'@@iterator',value:function value(){
-return new TypedArrayIterator(this);
-}},{key:'push',value:function push(
-
-
-
-
-
-item){
-this.__array.push(item);
-this.defineIndexProperty(this.length-1);
-this.setParents();
-this.__changed(this.length-1);
-}},{key:'pop',value:function pop()
-
-{
-var item=this.__array.pop();
-
-if(this.isModel&&item){
-item.__parent=null;
-item.__parentKey=null;
-}
-
-this.setParents();
-this.__changed(this.length);
-return item;
-}},{key:'unshift',value:function unshift()
-
-{
-var count=this.__array.unshift.apply(this.__array,arguments);
-
-for(var i=0;i<count;i++){
-this.defineIndexProperty(this.length+i);
-}
-
-this.setParents();
-this.__changed(0);
-
-return count;
-}},{key:'shift',value:function shift()
-
-{
-var item=this.__array.shift();
-
-if(this.isModel&&item){
-item.__parent=null;
-item.__parentKey=null;
-}
-
-this.setParents();
-this.__changed(0);
-return item;
-}},{key:'splice',value:function splice()
-
-{var _this2=this;
-
-
-
-var removed=this.__array.splice.apply(this.__array,arguments);
-
-removed.forEach(function(item){
-if(_this2.isModel&&item){
-item.__parent=null;
-_this2.__parentKey=null;
-}
-});
-
-var lengthDelta=-removed.length;
-
-
-var toAdd=Array.prototype.slice.call(arguments,2);
-
-if(toAdd){
-lengthDelta+=toAdd.length;
-}
-
-if(lengthDelta>0){
-for(var i=0;i<lengthDelta;i++){
-this.defineIndexProperty(this.length-1-i);
-}
-}
-
-this.setParents();
-
-this.__changed(this.length);
-return removed;
-}},{key:'valueOf',value:function valueOf()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-{
-return this.__array;
-}},{key:'toJSON',value:function toJSON()
-
-{
-if(this.isModel){
-return this.__array.map(function(item){return item?item.toJSON():null;});
-}
-
-return[].concat(this.__array);
-}},{key:'toArray',value:function toArray()
-
-
-
-
-
-
-{
-return[].concat(this.__array);
-}},{key:'_initEmitter',value:function _initEmitter()
-
-{
-if(!this._emitter){
-this._emitter=new EventEmitter();
-}
-}},{key:'listeners',value:function listeners()
-
-{
-this._initEmitter();
-return this._emitter.listeners.apply(this._emitter,arguments);
-}},{key:'emit',value:function emit()
-
-{
-if(!this._emitter){
-return;
-}
-
-return this._emitter.emit.apply(this._emitter,arguments);
-}},{key:'once',value:function once()
-
-{
-this._initEmitter();
-return this._emitter.once.apply(this._emitter,arguments);
-}},{key:'removeAllListeners',value:function removeAllListeners()
-
-{
-if(!this._emitter){
-return;
-}
-
-return this._emitter.removeAllListeners.apply(this._emitter,arguments);
-}},{key:'addListener',value:function addListener()
-
-{
-this._initEmitter();
-return this._emitter.addListener.apply(this._emitter,arguments);
-}},{key:'isModel',get:function get(){return this.type&&this.type.isModel;}},{key:'length',get:function get(){return this.__array.length;}},{key:'isTypedArray',get:function get(){return true;}}],[{key:'isTypedArray',value:function isTypedArray(obj){return!obj?false:this===obj.constructor;}},{key:'isArray',value:function isArray(obj){return Array.isArray(obj);}}]);return TypedArray;}();exports.default=TypedArray;
-
-
-FUNCTIONS.forEach(function(f){return TypedArray.prototype[f]=function(){return this.__array[f].apply(this.__array,arguments);};});
-
-/***/ }),
-/* 1 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-Object.defineProperty(exports,"__esModule",{value:true});
-var _RegexValidator=__webpack_require__(10);var _RegexValidator2=_interopRequireDefault(_RegexValidator);
-var _MaxLengthValidator=__webpack_require__(6);var _MaxLengthValidator2=_interopRequireDefault(_MaxLengthValidator);
-var _MinLengthValidator=__webpack_require__(8);var _MinLengthValidator2=_interopRequireDefault(_MinLengthValidator);
-var _MatchValidator=__webpack_require__(5);var _MatchValidator2=_interopRequireDefault(_MatchValidator);
-var _InValidator=__webpack_require__(4);var _InValidator2=_interopRequireDefault(_InValidator);
-var _MaxValidator=__webpack_require__(7);var _MaxValidator2=_interopRequireDefault(_MaxValidator);
-var _MinValidator=__webpack_require__(9);var _MinValidator2=_interopRequireDefault(_MinValidator);
-
-var _integer=__webpack_require__(12);var _integer2=_interopRequireDefault(_integer);
-var _required=__webpack_require__(13);var _required2=_interopRequireDefault(_required);
-var _empty=__webpack_require__(11);var _empty2=_interopRequireDefault(_empty);function _interopRequireDefault(obj){return obj&&obj.__esModule?obj:{default:obj};}exports.default=
-
-{
-Regex:_RegexValidator2.default,
-MaxLength:_MaxLengthValidator2.default,
-MinLength:_MinLengthValidator2.default,
-Match:_MatchValidator2.default,
-In:_InValidator2.default,
-Max:_MaxValidator2.default,
-Min:_MinValidator2.default,
-integer:_integer2.default,
-required:_required2.default,
-empty:_empty2.default};
-
-/***/ }),
-/* 2 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-Object.defineProperty(exports,"__esModule",{value:true});
-function ValidationError(result){
-this.name='ValidationError';
-this.message='Validation Failed';
-this.validation=result;
-this.stack=new Error().stack;
-}
-
-ValidationError.prototype=Object.create(Error.prototype);
-ValidationError.prototype.constructor=ValidationError;exports.default=
-
-ValidationError;
-
-/***/ }),
-/* 3 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-Object.defineProperty(exports,"__esModule",{value:true});exports.default=
-
-
-
-
-
-
-compose;function compose(obj,compositions){
-
-if(!compositions){
-compositions=obj;
-obj={};
-}
-
-
-if(!Array.isArray(compositions)){
-compositions=[compositions];
-}
-
-for(var _iterator=compositions,_isArray=Array.isArray(_iterator),_i=0,_iterator=_isArray?_iterator:_iterator[typeof Symbol==="function"?Symbol.iterator:"@@iterator"]();;){var _ref;if(_isArray){if(_i>=_iterator.length)break;_ref=_iterator[_i++];}else{_i=_iterator.next();if(_i.done)break;_ref=_i.value;}var composition=_ref;
-
-for(var key in composition){
-
-
-if(composition.hasOwnProperty(key)){
-var desc=Object.getOwnPropertyDescriptor(composition,key);
-
-
-
-if(desc.get||desc.set){
-Object.defineProperty(obj,key,{
-get:desc.get,
-set:desc.set,
-enumerable:desc.enumerable,
-writeable:desc.writeable,
-configurable:desc.configurable});
-
-}else{
-
-
-
-
-
-
-obj[key]=composition[key];
-
-
-if(obj[key].construtor===Function){
-obj[key].bind(obj);
-}
-}
-}
-}
-}
-
-return obj;
-}
-
-/***/ }),
-/* 4 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-Object.defineProperty(exports,"__esModule",{value:true});exports.default=inValidator;function inValidator(values,message){
-if(!Array.isArray(values)){
-throw new Error('An array of values must be provided to the InValidator.');
-}
-
-message=message||'Value must be one of '+values.join(',');
-
-return{
-validate:function validate(value){
-return values.includes(value);
-},
-message:message,
-name:'InValidator',
-args:['values'],
-values:values};
-
-};
-
-/***/ }),
-/* 5 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-Object.defineProperty(exports,"__esModule",{value:true});exports.default=function(field){var message=arguments.length>1&&arguments[1]!==undefined?arguments[1]:'Values do not match';
-
-return{
-validate:function validate(value){
-return this[field]===value;
-},
-message:message,
-name:'MatchValidator'};
-
-};;
-
-/***/ }),
-/* 6 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-Object.defineProperty(exports,"__esModule",{value:true});exports.default=function(maxLength){var message=arguments.length>1&&arguments[1]!==undefined?arguments[1]:null;
-if(typeof maxLength!=='number'){
-throw new Error('maxLength must be provided and must be a number');
-}
-
-message=message||'Value length can be at most '+maxLength;
-
-return{
-validate:function validate(value){
-return value&&value.length<=maxLength;
-},
-message:message,
-name:'MaxLengthValidator',
-args:'maxLength',
-maxLength:maxLength};
-
-};;
-
-/***/ }),
-/* 7 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-Object.defineProperty(exports,"__esModule",{value:true});exports.default=MaxValidator;function MaxValidator(max,message){
-if(typeof max!=='number'){
-throw new Error('max must be provided and must be a number.');
-}
-
-message=message||'Value must be max '+max;
-
-return{
-validate:function validate(value){
-return value<=max;
-},
-message:message,
-name:'MaxValidator',
-args:['max'],
-max:max};
-
-};
-
-/***/ }),
-/* 8 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-Object.defineProperty(exports,"__esModule",{value:true});exports.default=function(minLength){var message=arguments.length>1&&arguments[1]!==undefined?arguments[1]:null;
-if(typeof minLength!=='number'){
-throw new Error('minLength must be provided and must be a number');
-}
-
-message=message||'Value length must be at least '+minLength;
-
-return{
-validate:function validate(value){
-return value&&value.length>=minLength;
-},
-message:message,
-name:'MinLengthValidator',
-args:['minLength'],
-minLength:minLength};
-
-};;
-
-/***/ }),
-/* 9 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-Object.defineProperty(exports,"__esModule",{value:true});exports.default=MinValidator;function MinValidator(min,message){
-if(typeof min!=='number'){
-throw new Error('min must be provided and must be a number.');
-}
-
-message=message||'Value must be min '+min;
-
-return{
-validate:function validate(value){
-return value>=min;
-},
-message:message,
-name:MinValidator,
-args:['min'],
-min:min};
-
-};
-
-/***/ }),
-/* 10 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-Object.defineProperty(exports,"__esModule",{value:true});exports.default=
-
-
-
-
-
-
-
-
-
-function(){var pattern=arguments.length>0&&arguments[0]!==undefined?arguments[0]:null;var flags=arguments.length>1&&arguments[1]!==undefined?arguments[1]:'';var message=arguments.length>2&&arguments[2]!==undefined?arguments[2]:'Value does not match expected pattern';
-
-var regex=pattern.constructor!==RegExp?new RegExp(pattern,flags):pattern;
-
-return{
-validate:function validate(value){
-return value&&regex.test(value);
-},
-message:message,
-name:'RegexValidator'};
-
-};;
-
-/***/ }),
-/* 11 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-Object.defineProperty(exports,"__esModule",{value:true});exports.default={
-validate:function validate(value){
-return!Boolean(value);
-},
-message:'This field must be empty.',
-name:'empty'};
-
-/***/ }),
-/* 12 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-Object.defineProperty(exports,"__esModule",{value:true});exports.default={
-validate:function validate(n){
-return n===+n&&n===(n|0);
-},
-message:'You have to enter a whole number value.',
-name:'integer'};
-
-/***/ }),
-/* 13 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-Object.defineProperty(exports,"__esModule",{value:true});exports.default={
-validate:function validate(value){
-return value!==null&&value!==undefined;
-},
-message:'This field is required.',
-name:'required'};
-
-/***/ }),
-/* 14 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-Object.defineProperty(exports,"__esModule",{value:true});var _extends=Object.assign||function(target){for(var i=1;i<arguments.length;i++){var source=arguments[i];for(var key in source){if(Object.prototype.hasOwnProperty.call(source,key)){target[key]=source[key];}}}return target;};var _fbemitter=__webpack_require__(18);var _fbemitter2=_interopRequireDefault(_fbemitter);
-
-
-var _TypedArray=__webpack_require__(0);var _TypedArray2=_interopRequireDefault(_TypedArray);
-var _Validation=__webpack_require__(1);var _Validation2=_interopRequireDefault(_Validation);
-var _ValidationError=__webpack_require__(2);var _ValidationError2=_interopRequireDefault(_ValidationError);
-var _compose=__webpack_require__(3);var _compose2=_interopRequireDefault(_compose);function _interopRequireDefault(obj){return obj&&obj.__esModule?obj:{default:obj};}var EventEmitter=_fbemitter2.default.EventEmitter;
-
-var _onReady=function onReady(){return null;};
-
-function createModel(properties){
-function model(data){
-if(this.constructor!==model){
-throw new Error('Must be invoked with new.');
-}
-
-this.__data={};
-this.__parent=null;
-this.__parentKey=null;
-
-if(data){
-for(var key in data){
-if(data.hasOwnProperty(key)){
-this[key]=data[key];
-}
-}
-}
-
-return this;
-}
-
-
-model.def=_extends({},
-properties,{
-props:[]});var _loop=function _loop(
-
-
-
-key){
-var prop={
-key:key};
-
-
-
-
-
-
-
-
-
-
-
-
-if(properties[key].constructor===Object&&properties[key].type){
-prop.type=properties[key].type;
-prop.validators=properties[key].validators;
-prop.default=properties[key].default;
-}else{
-prop.type=properties[key];
-}
-
-
-if(Array.isArray(prop.type)){
-prop.type=prop.type[0];
-prop.isArray=true;
-}
-
-
-Object.defineProperty(model.prototype,prop.key,{
-get:function get(){
-return this.__data[prop.key];
-},
-set:function set(val){
-
-if(prop.type.isModel||prop.isArray){
-
-if(this.__data[prop.key]){
-this.__data[prop.key].__parent=null;
-this.__data[prop.key].__parentKey=null;
-}
-
-
-if(val!==null&&val!==undefined){
-if(prop.isArray&&!val.isTypedArray){
-
-val=new _TypedArray2.default(val,prop.type);
-}else if(prop.type.isModel&&val.constructor!==prop.type){
-
-val=new prop.type(val);
-}
-
-val.__parent=this;
-val.__parentKey=prop.key;
-}
-}
-
-this.__data[prop.key]=val;
-this.__changed(prop.key);
-},
-configurable:false,
-enumerable:true});
-
-
-
-if(typeof prop.type==='string'){
-setTimeout(function(){
-prop.type=Document[prop.type]||Structure[prop.type];
-_onReady();
-},1);
-}
-
-model.def.props.push(prop);};for(var key in properties){_loop(key);
-}
-
-model.prototype.validate=function(){var _this=this;
-var result={};
-var props=this.constructor.def.props.filter(function(prop){return prop.validators&&prop.validators.length>0;});
-var valid=true;
-
-props.forEach(function(prop){
-
-var isRequired=prop.validators.some(function(validator){return validator===_Validation2.default.required;});
-var hasValue=_Validation2.default.required.validate.call(_this,_this.__data[prop.key]);
-
-if(isRequired&&!hasValue){
-valid=false;
-result[prop.key]=false;
-
-return;
-}else if(!isRequired&&!hasValue){
-
-result[prop.key]=true;
-return;
-}
-
-prop.validators.forEach(function(validator){
-if(validator===_Validation2.default.required){
-return;
-}
-
-result[prop.key]=validator.call(_this,_this.__data[prop.key]);
-
-if(!result[prop.key]){
-valid=false;
-}
-});
-});
-
-if(!valid){
-throw new _ValidationError2.default(result);
-}
-
-return true;
-};
-
-model.prototype.valueOf=function(){
-return this.__data;
-};
-
-model.prototype.toJSON=function(){
-var data=_extends({},
-this.__data);
-
-
-this.constructor.def.props.
-filter(function(prop){return prop.type.isModel;}).
-forEach(function(prop){return data[prop.key]=data[prop.key]?data[prop.key].toJSON():data[prop.key];});
-
-
-return data;
-};
-
-model.prototype.__changed=function(key){
-this.__data=_extends({},
-this.__data);
-
-
-
-
-if(model.model==='ViewBlock'){
-console.log('parent',this.__parent,this.__parentKey);
-}
-
-this.emit('change',key);
-
-if(this.__parent){
-this.__parent.__changed(this.__parentKey);
-}
-};
-
-model.prototype._initEmitter=function(){
-if(!this._emitter){
-this._emitter=new EventEmitter();
-}
-};
-
-model.prototype.listeners=function(){
-this._initEmitter();
-return this._emitter.listeners.apply(this._emitter,arguments);
-};
-
-model.prototype.emit=function(){
-if(!this._emitter){
-return;
-}
-
-return this._emitter.emit.apply(this._emitter,arguments);
-};
-
-model.prototype.once=function(){
-this._initEmitter();
-return this._emitter.once.apply(this._emitter,arguments);
-};
-
-model.prototype.removeAllListeners=function(){
-if(!this._emitter){
-return;
-}
-
-return this._emitter.removeAllListeners.apply(this._emitter,arguments);
-};
-
-model.prototype.addListener=function(){
-this._initEmitter();
-return this._emitter.addListener.apply(this._emitter,arguments);
-};
-
-model.isModel=true;
-
-return model;
-}
-
-function Document(name,properties){
-if(this.constructor!==Document){
-throw new Error('Must be invoked with new.');
-}
-
-var document=createModel(properties);
-document.isDocument=true;
-document.model=name;
-
-Document[name]=document;
-return document;
-}
-
-function Structure(name,properties){
-if(this.constructor!==Structure){
-throw new Error('Must be invoked with new.');
-}
-
-var structure=createModel(properties);
-structure.isStructure=true;
-structure.model=name;
-
-Structure[name]=structure;
-return structure;
-}exports.default=
-
-{
-Document:Document,
-Structure:Structure,
-Validators:_Validation2.default,
-onReady:function onReady(cb){return _onReady=cb;},
-utils:{
-compose:_compose2.default}};
-
-
-
-window.Models={
-Document:Document,
-Structure:Structure,
-Validators:_Validation2.default,
-utils:{
-compose:_compose2.default}};
-
-/***/ }),
-/* 15 */
 /***/ (function(module, exports) {
 
 // shim for using process in browser
@@ -1126,7 +263,28 @@ process.umask = function() { return 0; };
 
 
 /***/ }),
-/* 16 */
+/* 1 */
+/***/ (function(module, exports, __webpack_require__) {
+
+/**
+ * Copyright (c) 2014-present, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ */
+
+var fbemitter = {
+  EventEmitter: __webpack_require__(18),
+  EmitterSubscription : __webpack_require__(2)
+};
+
+module.exports = fbemitter;
+
+
+/***/ }),
+/* 2 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -1148,7 +306,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 
 function _inherits(subClass, superClass) { if (typeof superClass !== 'function' && superClass !== null) { throw new TypeError('Super expression must either be null or a function, not ' + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
-var EventSubscription = __webpack_require__(20);
+var EventSubscription = __webpack_require__(19);
 
 /**
  * EmitterSubscription represents a subscription with listener and context data.
@@ -1180,7 +338,7 @@ var EmitterSubscription = (function (_EventSubscription) {
 module.exports = EmitterSubscription;
 
 /***/ }),
-/* 17 */
+/* 3 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -1239,31 +397,600 @@ function invariant(condition, format, a, b, c, d, e, f) {
 }
 
 module.exports = invariant;
-/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(15)))
+/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(0)))
+
+/***/ }),
+/* 4 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+Object.defineProperty(exports,"__esModule",{value:true});var _createClass=function(){function defineProperties(target,props){for(var i=0;i<props.length;i++){var descriptor=props[i];descriptor.enumerable=descriptor.enumerable||false;descriptor.configurable=true;if("value"in descriptor)descriptor.writable=true;Object.defineProperty(target,descriptor.key,descriptor);}}return function(Constructor,protoProps,staticProps){if(protoProps)defineProperties(Constructor.prototype,protoProps);if(staticProps)defineProperties(Constructor,staticProps);return Constructor;};}();var _fbemitter=__webpack_require__(1);var _fbemitter2=_interopRequireDefault(_fbemitter);function _interopRequireDefault(obj){return obj&&obj.__esModule?obj:{default:obj};}function _classCallCheck(instance,Constructor){if(!(instance instanceof Constructor)){throw new TypeError("Cannot call a class as a function");}}var
+EventEmitter=_fbemitter2.default.EventEmitter;
+
+var FUNCTIONS=['sort','reverse','join','forEach','slice','concat','includes','reduce','map','filter','find','findIndex','some','indexOf'];var
+
+TypedArrayIterator=function(){
+function TypedArrayIterator(array){_classCallCheck(this,TypedArrayIterator);
+this.i=0;
+this.array=array;
+}_createClass(TypedArrayIterator,[{key:'next',value:function next()
+
+{
+if(this.i>=this.array.length){
+this.i=0;
+return{done:true};
+}
+
+return{done:false,value:this.array[this.i++]};
+}}]);return TypedArrayIterator;}();var
+
+
+TypedArray=function(){
+function TypedArray(items,type){var _this=this;_classCallCheck(this,TypedArray);
+this.__array=Array.isArray(items)?[].concat(items):[items];
+this.__parent=null;
+this.__parentKey=null;
+this.type=type;
+
+for(var i=0;i<this.__array.length;i++){
+this.defineIndexProperty(i);
+}
+
+
+if(this.isModel){
+this.__array=this.__array.map(function(item){return!item||item.constructor===_this.type?item:new _this.type(item);});
+}
+
+
+this.setParents();
+
+this.__json=this._toJSON();
+}_createClass(TypedArray,[{key:'defineIndexProperty',value:function defineIndexProperty(
+
+index){
+if(!(index in this)){
+Object.defineProperty(this,index,{
+configurable:true,
+enumerable:true,
+get:function get(){
+return this.__array[index];
+},
+set:function set(val){
+if(this.type.isModel){
+
+if(this.__array[index]){
+this.__array[index].__parent=null;
+this.__array[index].__parentKey=null;
+}
+
+if(val){
+val.__parent=this;
+val.__parentKey=index;
+}
+}
+
+this.__array[index]=val;
+this.__changed(index);
+}});
+
+}
+}},{key:'setParents',value:function setParents()
+
+
+
+
+
+{
+if(this.isModel){
+for(var i=0;i<this.__array.length;i++){
+if(this.__array[i]){
+this.__array[i].__parent=this;
+this.__array[i].__parentKey=i;
+}
+}
+}
+}},{key:'clearParents',value:function clearParents()
+
+{
+if(this.isModel){
+for(var i=0;i<this.__array.length;i++){
+if(this.__array[i]){
+this.__array[i].__parent=null;
+this.__array[i].__parentKey=null;
+}
+}
+}
+}},{key:'__changed',value:function __changed(
+
+index){
+this.__json=this._toJSON();
+
+this.emit('change',index);
+
+if(this.__parent){
+this.__parent.__changed(this.__parentKey);
+}
+}},{key:typeof Symbol==='function'?
+
+
+
+
+
+Symbol.iterator:'@@iterator',value:function value(){
+return new TypedArrayIterator(this);
+}},{key:'push',value:function push(
+
+
+
+
+
+item){
+this.__array.push(item);
+this.defineIndexProperty(this.length-1);
+this.setParents();
+this.__changed(this.length-1);
+}},{key:'pop',value:function pop()
+
+{
+var item=this.__array.pop();
+
+if(this.isModel&&item){
+item.__parent=null;
+item.__parentKey=null;
+}
+
+this.setParents();
+this.__changed(this.length);
+return item;
+}},{key:'unshift',value:function unshift()
+
+{
+var count=this.__array.unshift.apply(this.__array,arguments);
+
+for(var i=0;i<count;i++){
+this.defineIndexProperty(this.length+i);
+}
+
+this.setParents();
+this.__changed(0);
+
+return count;
+}},{key:'shift',value:function shift()
+
+{
+var item=this.__array.shift();
+
+if(this.isModel&&item){
+item.__parent=null;
+item.__parentKey=null;
+}
+
+this.setParents();
+this.__changed(0);
+return item;
+}},{key:'splice',value:function splice()
+
+{var _this2=this;
+
+
+
+var removed=this.__array.splice.apply(this.__array,arguments);
+
+removed.forEach(function(item){
+if(_this2.isModel&&item){
+item.__parent=null;
+_this2.__parentKey=null;
+}
+});
+
+var lengthDelta=-removed.length;
+
+
+var toAdd=Array.prototype.slice.call(arguments,2);
+
+if(toAdd){
+lengthDelta+=toAdd.length;
+}
+
+if(lengthDelta>0){
+for(var i=0;i<lengthDelta;i++){
+this.defineIndexProperty(this.length-1-i);
+}
+}
+
+this.setParents();
+
+this.__changed(this.length);
+return removed;
+}},{key:'valueOf',value:function valueOf()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+{
+return this.__json;
+}},{key:'_toJSON',value:function _toJSON()
+
+
+{
+if(this.isModel){
+return this.__array.map(function(item){return item?item.toJSON():null;});
+}
+
+return[].concat(this.__array);
+}},{key:'toJSON',value:function toJSON()
+
+{
+return this.__json;
+}},{key:'toArray',value:function toArray()
+
+
+
+
+
+
+{
+return[].concat(this.__array);
+}},{key:'_initEmitter',value:function _initEmitter()
+
+{
+if(!this._emitter){
+this._emitter=new EventEmitter();
+}
+}},{key:'listeners',value:function listeners()
+
+{
+this._initEmitter();
+return this._emitter.listeners.apply(this._emitter,arguments);
+}},{key:'emit',value:function emit()
+
+{
+if(!this._emitter){
+return;
+}
+
+return this._emitter.emit.apply(this._emitter,arguments);
+}},{key:'once',value:function once()
+
+{
+this._initEmitter();
+return this._emitter.once.apply(this._emitter,arguments);
+}},{key:'removeAllListeners',value:function removeAllListeners()
+
+{
+if(!this._emitter){
+return;
+}
+
+return this._emitter.removeAllListeners.apply(this._emitter,arguments);
+}},{key:'addListener',value:function addListener()
+
+{
+this._initEmitter();
+return this._emitter.addListener.apply(this._emitter,arguments);
+}},{key:'isModel',get:function get(){return this.type&&this.type.isModel;}},{key:'length',get:function get(){return this.__array.length;}},{key:'isTypedArray',get:function get(){return true;}}],[{key:'isTypedArray',value:function isTypedArray(obj){return!obj?false:this===obj.constructor;}},{key:'isArray',value:function isArray(obj){return Array.isArray(obj);}}]);return TypedArray;}();exports.default=TypedArray;
+
+
+FUNCTIONS.forEach(function(f){return TypedArray.prototype[f]=function(){return this.__array[f].apply(this.__array,arguments);};});
+
+/***/ }),
+/* 5 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+Object.defineProperty(exports,"__esModule",{value:true});
+var _RegexValidator=__webpack_require__(14);var _RegexValidator2=_interopRequireDefault(_RegexValidator);
+var _MaxLengthValidator=__webpack_require__(10);var _MaxLengthValidator2=_interopRequireDefault(_MaxLengthValidator);
+var _MinLengthValidator=__webpack_require__(12);var _MinLengthValidator2=_interopRequireDefault(_MinLengthValidator);
+var _MatchValidator=__webpack_require__(9);var _MatchValidator2=_interopRequireDefault(_MatchValidator);
+var _InValidator=__webpack_require__(8);var _InValidator2=_interopRequireDefault(_InValidator);
+var _MaxValidator=__webpack_require__(11);var _MaxValidator2=_interopRequireDefault(_MaxValidator);
+var _MinValidator=__webpack_require__(13);var _MinValidator2=_interopRequireDefault(_MinValidator);
+
+var _integer=__webpack_require__(16);var _integer2=_interopRequireDefault(_integer);
+var _required=__webpack_require__(17);var _required2=_interopRequireDefault(_required);
+var _empty=__webpack_require__(15);var _empty2=_interopRequireDefault(_empty);function _interopRequireDefault(obj){return obj&&obj.__esModule?obj:{default:obj};}exports.default=
+
+{
+Regex:_RegexValidator2.default,
+MaxLength:_MaxLengthValidator2.default,
+MinLength:_MinLengthValidator2.default,
+Match:_MatchValidator2.default,
+In:_InValidator2.default,
+Max:_MaxValidator2.default,
+Min:_MinValidator2.default,
+integer:_integer2.default,
+required:_required2.default,
+empty:_empty2.default};
+
+/***/ }),
+/* 6 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+Object.defineProperty(exports,"__esModule",{value:true});
+function ValidationError(result){
+this.name='ValidationError';
+this.message='Validation Failed';
+this.validation=result;
+this.stack=new Error().stack;
+}
+
+ValidationError.prototype=Object.create(Error.prototype);
+ValidationError.prototype.constructor=ValidationError;exports.default=
+
+ValidationError;
+
+/***/ }),
+/* 7 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+Object.defineProperty(exports,"__esModule",{value:true});exports.default=
+
+
+
+
+
+
+compose;function compose(obj,compositions){
+
+if(!compositions){
+compositions=obj;
+obj={};
+}
+
+
+if(!Array.isArray(compositions)){
+compositions=[compositions];
+}
+
+for(var _iterator=compositions,_isArray=Array.isArray(_iterator),_i=0,_iterator=_isArray?_iterator:_iterator[typeof Symbol==="function"?Symbol.iterator:"@@iterator"]();;){var _ref;if(_isArray){if(_i>=_iterator.length)break;_ref=_iterator[_i++];}else{_i=_iterator.next();if(_i.done)break;_ref=_i.value;}var composition=_ref;
+
+for(var key in composition){
+
+
+if(composition.hasOwnProperty(key)){
+var desc=Object.getOwnPropertyDescriptor(composition,key);
+
+
+
+if(desc.get||desc.set){
+Object.defineProperty(obj,key,{
+get:desc.get,
+set:desc.set,
+enumerable:desc.enumerable,
+writeable:desc.writeable,
+configurable:desc.configurable});
+
+}else{
+
+
+
+
+
+
+obj[key]=composition[key];
+
+
+if(obj[key].construtor===Function){
+obj[key].bind(obj);
+}
+}
+}
+}
+}
+
+return obj;
+}
+
+/***/ }),
+/* 8 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+Object.defineProperty(exports,"__esModule",{value:true});exports.default=inValidator;function inValidator(values,message){
+if(!Array.isArray(values)){
+throw new Error('An array of values must be provided to the InValidator.');
+}
+
+message=message||'Value must be one of '+values.join(',');
+
+return{
+validate:function validate(value){
+return values.includes(value);
+},
+message:message,
+name:'InValidator',
+args:['values'],
+values:values};
+
+};
+
+/***/ }),
+/* 9 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+Object.defineProperty(exports,"__esModule",{value:true});exports.default=function(field){var message=arguments.length>1&&arguments[1]!==undefined?arguments[1]:'Values do not match';
+
+return{
+validate:function validate(value){
+return this[field]===value;
+},
+message:message,
+name:'MatchValidator'};
+
+};;
+
+/***/ }),
+/* 10 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+Object.defineProperty(exports,"__esModule",{value:true});exports.default=function(maxLength){var message=arguments.length>1&&arguments[1]!==undefined?arguments[1]:null;
+if(typeof maxLength!=='number'){
+throw new Error('maxLength must be provided and must be a number');
+}
+
+message=message||'Value length can be at most '+maxLength;
+
+return{
+validate:function validate(value){
+return value&&value.length<=maxLength;
+},
+message:message,
+name:'MaxLengthValidator',
+args:'maxLength',
+maxLength:maxLength};
+
+};;
+
+/***/ }),
+/* 11 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+Object.defineProperty(exports,"__esModule",{value:true});exports.default=MaxValidator;function MaxValidator(max,message){
+if(typeof max!=='number'){
+throw new Error('max must be provided and must be a number.');
+}
+
+message=message||'Value must be max '+max;
+
+return{
+validate:function validate(value){
+return value<=max;
+},
+message:message,
+name:'MaxValidator',
+args:['max'],
+max:max};
+
+};
+
+/***/ }),
+/* 12 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+Object.defineProperty(exports,"__esModule",{value:true});exports.default=function(minLength){var message=arguments.length>1&&arguments[1]!==undefined?arguments[1]:null;
+if(typeof minLength!=='number'){
+throw new Error('minLength must be provided and must be a number');
+}
+
+message=message||'Value length must be at least '+minLength;
+
+return{
+validate:function validate(value){
+return value&&value.length>=minLength;
+},
+message:message,
+name:'MinLengthValidator',
+args:['minLength'],
+minLength:minLength};
+
+};;
+
+/***/ }),
+/* 13 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+Object.defineProperty(exports,"__esModule",{value:true});exports.default=MinValidator;function MinValidator(min,message){
+if(typeof min!=='number'){
+throw new Error('min must be provided and must be a number.');
+}
+
+message=message||'Value must be min '+min;
+
+return{
+validate:function validate(value){
+return value>=min;
+},
+message:message,
+name:MinValidator,
+args:['min'],
+min:min};
+
+};
+
+/***/ }),
+/* 14 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+Object.defineProperty(exports,"__esModule",{value:true});exports.default=
+
+
+
+
+
+
+
+
+
+function(){var pattern=arguments.length>0&&arguments[0]!==undefined?arguments[0]:null;var flags=arguments.length>1&&arguments[1]!==undefined?arguments[1]:'';var message=arguments.length>2&&arguments[2]!==undefined?arguments[2]:'Value does not match expected pattern';
+
+var regex=pattern.constructor!==RegExp?new RegExp(pattern,flags):pattern;
+
+return{
+validate:function validate(value){
+return value&&regex.test(value);
+},
+message:message,
+name:'RegexValidator'};
+
+};;
+
+/***/ }),
+/* 15 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+Object.defineProperty(exports,"__esModule",{value:true});exports.default={
+validate:function validate(value){
+return!Boolean(value);
+},
+message:'This field must be empty.',
+name:'empty'};
+
+/***/ }),
+/* 16 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+Object.defineProperty(exports,"__esModule",{value:true});exports.default={
+validate:function validate(n){
+return n===+n&&n===(n|0);
+},
+message:'You have to enter a whole number value.',
+name:'integer'};
+
+/***/ }),
+/* 17 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+Object.defineProperty(exports,"__esModule",{value:true});exports.default={
+validate:function validate(value){
+return value!==null&&value!==undefined;
+},
+message:'This field is required.',
+name:'required'};
 
 /***/ }),
 /* 18 */
-/***/ (function(module, exports, __webpack_require__) {
-
-/**
- * Copyright (c) 2014-present, Facebook, Inc.
- * All rights reserved.
- *
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
- */
-
-var fbemitter = {
-  EventEmitter: __webpack_require__(19),
-  EmitterSubscription : __webpack_require__(16)
-};
-
-module.exports = fbemitter;
-
-
-/***/ }),
-/* 19 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -1283,11 +1010,11 @@ module.exports = fbemitter;
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError('Cannot call a class as a function'); } }
 
-var EmitterSubscription = __webpack_require__(16);
-var EventSubscriptionVendor = __webpack_require__(21);
+var EmitterSubscription = __webpack_require__(2);
+var EventSubscriptionVendor = __webpack_require__(20);
 
-var emptyFunction = __webpack_require__(22);
-var invariant = __webpack_require__(17);
+var emptyFunction = __webpack_require__(21);
+var invariant = __webpack_require__(3);
 
 /**
  * @class BaseEventEmitter
@@ -1458,10 +1185,10 @@ var BaseEventEmitter = (function () {
 })();
 
 module.exports = BaseEventEmitter;
-/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(15)))
+/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(0)))
 
 /***/ }),
-/* 20 */
+/* 19 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -1516,7 +1243,7 @@ var EventSubscription = (function () {
 module.exports = EventSubscription;
 
 /***/ }),
-/* 21 */
+/* 20 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -1536,7 +1263,7 @@ module.exports = EventSubscription;
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError('Cannot call a class as a function'); } }
 
-var invariant = __webpack_require__(17);
+var invariant = __webpack_require__(3);
 
 /**
  * EventSubscriptionVendor stores a set of EventSubscriptions that are
@@ -1623,10 +1350,10 @@ var EventSubscriptionVendor = (function () {
 })();
 
 module.exports = EventSubscriptionVendor;
-/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(15)))
+/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(0)))
 
 /***/ }),
-/* 22 */
+/* 21 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -1668,6 +1395,283 @@ emptyFunction.thatReturnsArgument = function (arg) {
 };
 
 module.exports = emptyFunction;
+
+/***/ }),
+/* 22 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+Object.defineProperty(exports,"__esModule",{value:true});var _extends=Object.assign||function(target){for(var i=1;i<arguments.length;i++){var source=arguments[i];for(var key in source){if(Object.prototype.hasOwnProperty.call(source,key)){target[key]=source[key];}}}return target;};var _fbemitter=__webpack_require__(1);var _fbemitter2=_interopRequireDefault(_fbemitter);
+
+
+var _TypedArray=__webpack_require__(4);var _TypedArray2=_interopRequireDefault(_TypedArray);
+var _Validation=__webpack_require__(5);var _Validation2=_interopRequireDefault(_Validation);
+var _ValidationError=__webpack_require__(6);var _ValidationError2=_interopRequireDefault(_ValidationError);
+var _compose=__webpack_require__(7);var _compose2=_interopRequireDefault(_compose);function _interopRequireDefault(obj){return obj&&obj.__esModule?obj:{default:obj};}var EventEmitter=_fbemitter2.default.EventEmitter;
+
+var _onReady=function onReady(){return null;};
+
+function createModel(properties){
+function model(data){
+if(this.constructor!==model){
+throw new Error('Must be invoked with new.');
+}
+
+this.__data={};
+this.__json={};
+this.__parent=null;
+this.__parentKey=null;
+
+if(data){
+for(var key in data){
+if(data.hasOwnProperty(key)){
+this[key]=data[key];
+}
+}
+}
+
+return this;
+}
+
+
+model.def=_extends({},
+properties,{
+props:[]});var _loop=function _loop(
+
+
+
+key){
+var prop={
+key:key};
+
+
+
+
+
+
+
+
+
+
+
+
+if(properties[key].constructor===Object&&properties[key].type){
+prop.type=properties[key].type;
+prop.validators=properties[key].validators;
+prop.default=properties[key].default;
+}else{
+prop.type=properties[key];
+}
+
+
+if(Array.isArray(prop.type)){
+prop.type=prop.type[0];
+prop.isArray=true;
+}
+
+
+Object.defineProperty(model.prototype,prop.key,{
+get:function get(){
+return this.__data[prop.key];
+},
+set:function set(val){
+
+if(prop.type.isModel||prop.isArray){
+
+if(this.__data[prop.key]){
+this.__data[prop.key].__parent=null;
+this.__data[prop.key].__parentKey=null;
+}
+
+
+if(val!==null&&val!==undefined){
+if(prop.isArray&&!val.isTypedArray){
+
+val=new _TypedArray2.default(val,prop.type);
+}else if(prop.type.isModel&&val.constructor!==prop.type){
+
+val=new prop.type(val);
+}
+
+val.__parent=this;
+val.__parentKey=prop.key;
+}
+}
+
+this.__data[prop.key]=val;
+this.__changed(prop.key);
+},
+configurable:false,
+enumerable:true});
+
+
+
+if(typeof prop.type==='string'){
+setTimeout(function(){
+prop.type=Document[prop.type]||Structure[prop.type];
+_onReady();
+},1);
+}
+
+model.def.props.push(prop);};for(var key in properties){_loop(key);
+}
+
+model.prototype.validate=function(){var _this=this;
+var result={};
+var props=this.constructor.def.props.filter(function(prop){return prop.validators&&prop.validators.length>0;});
+var valid=true;
+
+props.forEach(function(prop){
+
+var isRequired=prop.validators.some(function(validator){return validator===_Validation2.default.required;});
+var hasValue=_Validation2.default.required.validate.call(_this,_this.__data[prop.key]);
+
+if(isRequired&&!hasValue){
+valid=false;
+result[prop.key]=false;
+
+return;
+}else if(!isRequired&&!hasValue){
+
+result[prop.key]=true;
+return;
+}
+
+prop.validators.forEach(function(validator){
+if(validator===_Validation2.default.required){
+return;
+}
+
+result[prop.key]=validator.call(_this,_this.__data[prop.key]);
+
+if(!result[prop.key]){
+valid=false;
+}
+});
+});
+
+if(!valid){
+throw new _ValidationError2.default(result);
+}
+
+return true;
+};
+
+model.prototype.valueOf=function(){
+return this.__json;
+};
+
+model.prototype._toJSON=function(){
+var data=_extends({},
+this.__data);
+
+
+this.constructor.def.props.
+filter(function(prop){return prop.type.isModel||prop.isArray;}).
+forEach(function(prop){return data[prop.key]=data[prop.key]?data[prop.key].toJSON():data[prop.key];});
+
+
+return data;
+};
+
+model.prototype.toJSON=function(){
+return this.__json;
+};
+
+model.prototype.__changed=function(key){
+this.__json=this._toJSON();
+
+this.emit('change',key);
+
+if(this.__parent){
+this.__parent.__changed(this.__parentKey);
+}
+};
+
+model.prototype._initEmitter=function(){
+if(!this._emitter){
+this._emitter=new EventEmitter();
+}
+};
+
+model.prototype.listeners=function(){
+this._initEmitter();
+return this._emitter.listeners.apply(this._emitter,arguments);
+};
+
+model.prototype.emit=function(){
+if(!this._emitter){
+return;
+}
+
+return this._emitter.emit.apply(this._emitter,arguments);
+};
+
+model.prototype.once=function(){
+this._initEmitter();
+return this._emitter.once.apply(this._emitter,arguments);
+};
+
+model.prototype.removeAllListeners=function(){
+if(!this._emitter){
+return;
+}
+
+return this._emitter.removeAllListeners.apply(this._emitter,arguments);
+};
+
+model.prototype.addListener=function(){
+this._initEmitter();
+return this._emitter.addListener.apply(this._emitter,arguments);
+};
+
+model.isModel=true;
+
+return model;
+}
+
+function Document(name,properties){
+if(this.constructor!==Document){
+throw new Error('Must be invoked with new.');
+}
+
+var document=createModel(properties);
+document.isDocument=true;
+document.model=name;
+
+Document[name]=document;
+return document;
+}
+
+function Structure(name,properties){
+if(this.constructor!==Structure){
+throw new Error('Must be invoked with new.');
+}
+
+var structure=createModel(properties);
+structure.isStructure=true;
+structure.model=name;
+
+Structure[name]=structure;
+return structure;
+}exports.default=
+
+{
+Document:Document,
+Structure:Structure,
+Validators:_Validation2.default,
+onReady:function onReady(cb){return _onReady=cb;},
+utils:{
+compose:_compose2.default}};
+
+
+
+window.Models={
+Document:Document,
+Structure:Structure,
+Validators:_Validation2.default,
+utils:{
+compose:_compose2.default}};
 
 /***/ })
 /******/ ]);

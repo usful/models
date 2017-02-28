@@ -37,6 +37,8 @@ export default class TypedArray {
     
     //Set any initial children.
     this.setParents();
+  
+    this.__json = this._toJSON();
   }
 
   defineIndexProperty(index) {
@@ -95,7 +97,7 @@ export default class TypedArray {
   }
   
   __changed(index) {
-    this.__array = [].concat(this.__array);
+    this.__json = this._toJSON();
 
     this.emit('change', index);
 
@@ -210,15 +212,20 @@ export default class TypedArray {
   }
 
   valueOf() {
-    return this.__array;
+    return this.__json;
   }
   
-  toJSON() {
+
+  _toJSON() {
     if (this.isModel) {
       return this.__array.map(item => item ? item.toJSON() : null);
     }
-    
+  
     return [].concat(this.__array);
+  }
+  
+  toJSON() {
+    return this.__json;
   }
   
   /**

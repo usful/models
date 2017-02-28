@@ -15,6 +15,7 @@ function createModel(properties) {
     }
     
     this.__data = {};
+    this.__json = {};
     this.__parent = null;
     this.__parentKey = null;
     
@@ -154,32 +155,28 @@ function createModel(properties) {
   };
   
   model.prototype.valueOf = function() {
-    return this.__data;
+    return this.__json;
   };
   
-  model.prototype.toJSON = function() {
+  model.prototype._toJSON = function() {
     const data = {
       ... this.__data
     };
     
     this.constructor.def.props
-      .filter(prop => prop.type.isModel)
+      .filter(prop => prop.type.isModel || prop.isArray)
       .forEach(prop => data[prop.key] = data[prop.key] ? data[prop.key].toJSON() : data[prop.key])
     ;
     
     return data;
   };
   
-  model.prototype.__changed = function(key) {
-    this.__data = {
-      ... this.__data
-    };
+  model.prototype.toJSON = function() {
+    return this.__json;
+  };
   
-    //console.log(key, 'on', model.model, 'changed');
-
-    if (model.model === 'ViewBlock') {
-      console.log('parent', this.__parent, this.__parentKey);
-    }
+  model.prototype.__changed = function(key) {
+    this.__json = this._toJSON();
     
     this.emit('change', key);
     
