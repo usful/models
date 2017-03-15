@@ -16,10 +16,12 @@ export default function immutableBinding () {
   };
 
   for (let i = 0; i < this.constructor.def.keys.length; i++) {
-    let prop = this.constructor.def.keys[i];
+    const prop = this.constructor.def.keys[i];
+    const def = this.constructor.def[prop];
+    let val = this.__data[prop];
 
     //This property is virtual, don't persist it.
-    if (prop.virtual) {
+    if (def.virtual) {
       continue;
     }
 
@@ -28,10 +30,7 @@ export default function immutableBinding () {
       bind[prop] = this.__immutable ? this.__immutable[prop] : this.__data[prop];
       continue;
     }
-
-    let def = this.constructor.def[prop];
-    let val = this.__data[prop];
-
+    
     //For primitives, there is no structural sharing anyways so use what is in data.
     if (!def.isArray && !def.type.isModel) {
       bind[prop] = val;
