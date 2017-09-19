@@ -11,8 +11,7 @@ module.exports = {
     path: __dirname + '/dist',
     filename: outputFile,
     library: libraryName,
-    libraryTarget: 'umd',
-    umdNamedDefine: true
+    libraryTarget: 'commonjs2'
   },
   module: {
     loaders: [
@@ -21,7 +20,7 @@ module.exports = {
         loader: 'babel-loader',
         exclude: /(node_modules|bower_components)/,
         query: {
-          presets: ['es2015', 'stage-0', 'react', 'react-native']
+          presets: ['es2015', 'stage-0']
         }
       }
     ]
