@@ -6,25 +6,25 @@
  * @returns {*}
  */
 export default function compose(obj, compositions) {
-
+  
   if (!compositions) {
     compositions = obj;
     obj = {};
   }
-
+  
   //Easier to assume an array of composition objects have been passed in
   if (!Array.isArray(compositions)) {
     compositions = [compositions];
   }
-
+  
   for (let composition of compositions) {
-
+    
     for (let key in composition) {
       //Check to see if this property was inherited, if so it should not be composed.
       //TODO: should this throw a warning? Devs may expect that it would compose inherited methods.
       if (composition.hasOwnProperty(key)) {
         let desc = Object.getOwnPropertyDescriptor(composition, key);
-
+        
         //Check to see if the property descriptor actually defines a getter || setter.  These are composed slightly
         //differently.
         if (desc.get || desc.set) {
@@ -43,7 +43,7 @@ export default function compose(obj, compositions) {
            * IE. you shouldn't be composing objects that you are using later.
            */
           obj[key] = composition[key];
-
+          
           //If this is a function, bind that function to the object passed in.
           if (obj[key].construtor === Function) {
             obj[key].bind(obj);
@@ -52,6 +52,6 @@ export default function compose(obj, compositions) {
       }
     }
   }
-
+  
   return obj;
 }

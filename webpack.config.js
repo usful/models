@@ -1,36 +1,44 @@
 // webpack.config.js
-var webpack = require('webpack');
-var path = require('path');
-var libraryName = 'Models';
-var outputFile = libraryName + '.js';
+const webpack = require('webpack');
 
-var config = {
-  entry: __dirname + '/src/Model.js',
+module.exports = {
+  entry: `${__dirname}/src/Models.js`,
   devtool: 'source-map',
   output: {
-    path: __dirname + '/dist',
-    filename: outputFile,
-    library: libraryName,
-    libraryTarget: 'umd',
-    umdNamedDefine: true
+    path: `${__dirname}/dist`,
+    filename: 'Models.js',
+    library: 'Models.js',
+    libraryTarget: 'commonjs2'
   },
   module: {
     loaders: [
       {
         test: /(\.jsx|\.js)$/,
-        loader: 'babel',
-        exclude: /(node_modules|bower_components)/,
+        loader: 'babel-loader',
+        exclude: /(node_modules)/,
         query: {
-          presets: ['es2015', 'stage-0', 'react']
+          presets: ['es2015', 'stage-0']
         }
       }
     ]
   },
-  resolve: {
-    root: path.resolve('./src'),
-    extensions: ['', '.js']
-  },
+  plugins: [
+    /*
+    new webpack.optimize.UglifyJsPlugin({
+      debug: false,
+      minimize: true,
+      sourceMap: false,
+      output: {
+        comments: false
+      },
+      compressor: {  // eslint-disable-line camelcase
+        warnings: false,
+        unused: true,
+        dead_code: true
+      },
+      mangle: false
+    })
+    */
+  ],
   watch: true
 };
-
-module.exports = config;

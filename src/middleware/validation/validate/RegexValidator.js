@@ -8,7 +8,7 @@
  * @param {string} [message='Value does not match expected pattern'] Message associated with failure of validation
  * @returns {{validate: validate, message: string}}
  */
-export default function(pattern = null, flags = '', message =  'Value does not match expected pattern') {
+export default function(pattern, flags = '', message =  'Value does not match expected pattern') {
 
   let regex = (pattern.constructor !== RegExp) ? new RegExp(pattern, flags) : pattern;
 
