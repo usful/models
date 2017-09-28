@@ -1,16 +1,13 @@
 // webpack.config.js
-var webpack = require('webpack');
-var path = require('path');
-var libraryName = 'Models';
-var outputFile = libraryName + '.js';
+const webpack = require('webpack');
 
 module.exports = {
-  entry: __dirname + '/src/Models.js',
+  entry: `${__dirname}/src/Models.js`,
   devtool: 'source-map',
   output: {
-    path: __dirname + '/dist',
-    filename: outputFile,
-    library: libraryName,
+    path: `${__dirname}/dist`,
+    filename: 'Models.js',
+    library: 'Models.js',
     libraryTarget: 'commonjs2'
   },
   module: {
@@ -18,7 +15,7 @@ module.exports = {
       {
         test: /(\.jsx|\.js)$/,
         loader: 'babel-loader',
-        exclude: /(node_modules|bower_components)/,
+        exclude: /(node_modules)/,
         query: {
           presets: ['es2015', 'stage-0']
         }

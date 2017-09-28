@@ -234,7 +234,7 @@ export default class TypedArray {
 
   _toJSON() {
     if (this.isModel) {
-      return this.__array.map(item => (item ? item.toJSON() : null));
+      return this.__array.map(item => (item ? item.toJSON() : item));
     }
 
     return [].concat(this.__array);
