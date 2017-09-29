@@ -336,11 +336,9 @@ module.exports = EmitterSubscription;
 "use strict";
 /* WEBPACK VAR INJECTION */(function(process) {/**
  * Copyright (c) 2013-present, Facebook, Inc.
- * All rights reserved.
  *
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
  *
  */
 
@@ -580,7 +578,7 @@ function Models(_ref) {
               } else if (prop.type.isModel && val.constructor !== prop.type) {
                 //This value is a model, but it has not been created as a model yet.
                 val = new prop.type(val);
-              } else if (prop.type.isModel && val.constructor === prop.type) {
+              } else if (prop.type.isModel && val.constructor === prop.type.model) {
                 //This value is a model, and it is coming from another object? Clone it.
                 val = new prop.type(val.toJSON());
               }
@@ -951,12 +949,14 @@ var TypedArray = function () {
     key: '_toJSON',
     value: function _toJSON() {
       if (this.isModel) {
-        return this.__array.map(function (item) {
+        this.__json = this.__array.map(function (item) {
           return item ? item.toJSON() : item;
         });
+        return this.__json;
       }
 
-      return [].concat(this.__array);
+      this.__json = [].concat(this.__array);
+      return this.__json;
     }
   }, {
     key: 'toJSON',
@@ -1419,11 +1419,9 @@ module.exports = EventSubscriptionVendor;
 
 /**
  * Copyright (c) 2013-present, Facebook, Inc.
- * All rights reserved.
  *
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
  *
  * 
  */
@@ -1956,7 +1954,7 @@ exports.default = function (model) {
         _this.constructor.def.props.filter(function (prop) {
           return !prop.virtual && (prop.type.isModel || prop.isArray);
         }).forEach(function (prop) {
-          return data[prop.key] = data[prop.key] ? data[prop.key].toJSON() : data[prop.key];
+          return data[prop.key] = _this[prop.key] ? _this[prop.key].toJSON() : _this[prop.key];
         });
 
         _this.__json = data;
