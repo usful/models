@@ -1,17 +1,20 @@
 import FBEmitter from 'fbemitter';
 const { EventEmitter } = FBEmitter;
 
-const FUNCTIONS = [
+const ARRAY_FUNCTIONS = [
   'sort',
-  'reverse',
+  'filter',
   'join',
-  'forEach',
+  'reverse',
   'slice',
-  'concat',
+  'concat'
+];
+
+const FUNCTIONS = [
+  'forEach',
   'includes',
   'reduce',
   'map',
-  'filter',
   'find',
   'findIndex',
   'some',
@@ -22,11 +25,11 @@ class TypedArrayIterator {
   static isTypedArray(obj) {
     return !obj ? false : this === obj.constructor;
   }
-  
+
   static isArray(obj) {
     return Array.isArray(obj);
   }
-  
+
   constructor(array) {
     this.i = 0;
     this.array = array;
@@ -234,10 +237,12 @@ export default class TypedArray {
 
   _toJSON() {
     if (this.isModel) {
-      return this.__array.map(item => (item ? item.toJSON() : item));
+      this.__json = this.__array.map(item => (item ? item.toJSON() : item));
+      return this.__json;
     }
 
-    return [].concat(this.__array);
+    this.__json = [].concat(this.__array);
+    return this.__json;
   }
 
   toJSON() {
@@ -290,6 +295,16 @@ export default class TypedArray {
     return this._emitter.addListener.apply(this._emitter, arguments);
   }
 }
+
+ARRAY_FUNCTIONS.forEach(
+  f =>
+    (TypedArray.prototype[f] = function() {
+      return new TypedArray(
+        this.__array[f].apply(this.__array, arguments),
+        this.type
+      );
+    })
+);
 
 FUNCTIONS.forEach(
   f =>

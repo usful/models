@@ -24,9 +24,9 @@ export default function(model) {
           )
           .forEach(
             prop =>
-              (data[prop.key] = data[prop.key]
-                ? data[prop.key].toJSON()
-                : data[prop.key])
+              (data[prop.key] = this[prop.key]
+                ? this[prop.key].toJSON()
+                : this[prop.key])
           );
 
         this.__json = data;

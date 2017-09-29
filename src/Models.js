@@ -94,7 +94,7 @@ function Models({ middleware = [], onReady = () => null, changeThrottle = 1 }) {
               } else if (prop.type.isModel && val.constructor !== prop.type) {
                 //This value is a model, but it has not been created as a model yet.
                 val = new prop.type(val);
-              } else if (prop.type.isModel && val.constructor === prop.type) {
+              } else if (prop.type.isModel && val.constructor === prop.type.model) {
                 //This value is a model, and it is coming from another object? Clone it.
                 val = new prop.type(val.toJSON());
               }
