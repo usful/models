@@ -22,6 +22,11 @@ function Models({ middleware = [], changeThrottle = 1 }) {
             this[key] = data[key];
           }
         });
+
+        //Flush the data.
+        if (this.__flush()) {
+          this.__flush();
+        }
       }
 
       return this;
@@ -56,6 +61,7 @@ function Models({ middleware = [], changeThrottle = 1 }) {
         prop.validators = properties[key].validators;
         prop.default = properties[key].default;
         prop.virtual = !!properties[key].virtual;
+        prop.listen = !!properties[key].listen;
       } else {
         prop.type = properties[key];
       }
@@ -105,7 +111,10 @@ function Models({ middleware = [], changeThrottle = 1 }) {
           }
 
           this.__data[prop.key] = val;
-          this.__changed(prop.key);
+
+          if (!!prop.listen) {
+            this.__changed(prop.key);
+          }
         },
         configurable: false,
         enumerable: true
@@ -138,13 +147,17 @@ function Models({ middleware = [], changeThrottle = 1 }) {
 
       //TODO: probably a better way to do this than iterate over all after each model is added.
       //Attached references by name (string passed in as prop type).
-      for (let modelName of definitions) {
+      for (let modelName in definitions) {
         const modelDefinition = definitions[modelName];
-        modelDefinition.def.props.forEach(prop => {
-          if (typeof prop.type === 'string' && definitions[prop.type]) {
-            prop.type = definitions[prop.type];
-          }
-        })
+
+        modelDefinition.def.props
+          .filter(prop => typeof prop.type === 'string')
+          .forEach(prop => {
+            if (definitions[prop.type]) {
+              console.log('Fixing', modelName, prop.key, prop.type);
+              prop.type = definitions[prop.type];
+            }
+          });
       }
 
       return model;
