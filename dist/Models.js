@@ -336,9 +336,11 @@ module.exports = EmitterSubscription;
 "use strict";
 /* WEBPACK VAR INJECTION */(function(process) {/**
  * Copyright (c) 2013-present, Facebook, Inc.
+ * All rights reserved.
  *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
  *
  */
 
@@ -477,10 +479,6 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 function Models(_ref) {
   var _ref$middleware = _ref.middleware,
       middleware = _ref$middleware === undefined ? [] : _ref$middleware,
-      _ref$onReady = _ref.onReady,
-      onReady = _ref$onReady === undefined ? function () {
-    return null;
-  } : _ref$onReady,
       _ref$changeThrottle = _ref.changeThrottle,
       changeThrottle = _ref$changeThrottle === undefined ? 1 : _ref$changeThrottle;
 
@@ -506,6 +504,11 @@ function Models(_ref) {
             _this[key] = data[key];
           }
         });
+
+        //Flush the data.
+        if (this.__flush()) {
+          this.__flush();
+        }
       }
 
       return this;
@@ -540,6 +543,7 @@ function Models(_ref) {
         prop.validators = properties[key].validators;
         prop.default = properties[key].default;
         prop.virtual = !!properties[key].virtual;
+        prop.listen = !!properties[key].listen;
       } else {
         prop.type = properties[key];
       }
@@ -578,7 +582,7 @@ function Models(_ref) {
               } else if (prop.type.isModel && val.constructor !== prop.type) {
                 //This value is a model, but it has not been created as a model yet.
                 val = new prop.type(val);
-              } else if (prop.type.isModel && val.constructor === prop.type.model) {
+              } else if (prop.type.isModel && val.constructor === prop.type) {
                 //This value is a model, and it is coming from another object? Clone it.
                 val = new prop.type(val.toJSON());
               }
@@ -589,19 +593,14 @@ function Models(_ref) {
           }
 
           this.__data[prop.key] = val;
-          this.__changed(prop.key);
+
+          if (!!prop.listen) {
+            this.__changed(prop.key);
+          }
         },
         configurable: false,
         enumerable: true
       });
-
-      //Lazy load definitions to allow cyclic references
-      if (typeof prop.type === 'string') {
-        setTimeout(function () {
-          prop.type = definitions[prop.type];
-          onReady();
-        }, changeThrottle);
-      }
 
       model.def.props.push(prop);
     };
@@ -639,6 +638,26 @@ function Models(_ref) {
         model.model = name;
         model.middleware = middleware;
         definitions[name] = model;
+
+        //TODO: probably a better way to do this than iterate over all after each model is added.
+        //Attached references by name (string passed in as prop type).
+
+        var _loop2 = function _loop2(modelName) {
+          var modelDefinition = definitions[modelName];
+
+          modelDefinition.def.props.filter(function (prop) {
+            return typeof prop.type === 'string';
+          }).forEach(function (prop) {
+            if (definitions[prop.type]) {
+              console.log('Fixing', modelName, prop.key, prop.type);
+              prop.type = definitions[prop.type];
+            }
+          });
+        };
+
+        for (var modelName in definitions) {
+          _loop2(modelName);
+        }
 
         return model;
       }
@@ -949,14 +968,12 @@ var TypedArray = function () {
     key: '_toJSON',
     value: function _toJSON() {
       if (this.isModel) {
-        this.__json = this.__array.map(function (item) {
+        return this.__array.map(function (item) {
           return item ? item.toJSON() : item;
         });
-        return this.__json;
       }
 
-      this.__json = [].concat(this.__array);
-      return this.__json;
+      return [].concat(this.__array);
     }
   }, {
     key: 'toJSON',
@@ -1419,9 +1436,11 @@ module.exports = EventSubscriptionVendor;
 
 /**
  * Copyright (c) 2013-present, Facebook, Inc.
+ * All rights reserved.
  *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
  *
  * 
  */
@@ -1944,25 +1963,30 @@ exports.default = function (model) {
 
   model.prototype.__changed2 = model.prototype.__changed;
 
+  model.prototype.__flush = function () {
+    var data = _extends({}, this.__data);
+
+    this.constructor.def.props.filter(function (prop) {
+      return !prop.virtual && (prop.type.isModel || prop.isArray);
+    }).forEach(function (prop) {
+      return data[prop.key] = data[prop.key] ? data[prop.key].toJSON() : data[prop.key];
+    });
+
+    this.__json = data;
+    this.__dirty = null;
+
+    if (this.constructor.middleware.includes(_events2.default)) {
+      this.emit('change', data);
+    }
+  };
+
   model.prototype.__changed = function (key) {
     var _this = this;
 
+    console.log(this.constructor.model, '__changed', key);
     if (!this.__dirty) {
       this.__dirty = setTimeout(function () {
-        var data = _extends({}, _this.__data);
-
-        _this.constructor.def.props.filter(function (prop) {
-          return !prop.virtual && (prop.type.isModel || prop.isArray);
-        }).forEach(function (prop) {
-          return data[prop.key] = _this[prop.key] ? _this[prop.key].toJSON() : _this[prop.key];
-        });
-
-        _this.__json = data;
-        _this.__dirty = null;
-
-        if (_this.constructor.middleware.includes(_events2.default)) {
-          _this.emit('change', data);
-        }
+        return _this.__flush();
       }, this.constructor.changeThrottle);
     }
 
