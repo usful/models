@@ -1,7 +1,7 @@
 import TypedArray from './TypedArray';
 import Middleware from './middleware';
 
-function Models({ middleware = [], onReady = () => null, changeThrottle = 1 }) {
+function Models({ middleware = [], changeThrottle = 1 }) {
   const definitions = {};
 
   function createModel(properties) {
@@ -111,14 +111,6 @@ function Models({ middleware = [], onReady = () => null, changeThrottle = 1 }) {
         enumerable: true
       });
 
-      //Lazy load definitions to allow cyclic references
-      if (typeof prop.type === 'string') {
-        setTimeout(() => {
-          prop.type = definitions[prop.type];
-          onReady();
-        }, changeThrottle);
-      }
-
       model.def.props.push(prop);
     }
 
@@ -143,6 +135,17 @@ function Models({ middleware = [], onReady = () => null, changeThrottle = 1 }) {
       model.model = name;
       model.middleware = middleware;
       definitions[name] = model;
+
+      //TODO: probably a better way to do this than iterate over all after each model is added.
+      //Attached references by name (string passed in as prop type).
+      for (let modelName of definitions) {
+        const modelDefinition = definitions[modelName];
+        modelDefinition.def.props.forEach(prop => {
+          if (typeof prop.type === 'string' && definitions[prop.type]) {
+            prop.type = definitions[prop.type];
+          }
+        })
+      }
 
       return model;
     }
