@@ -42,9 +42,15 @@ function Models({ middleware = [], changeThrottle = 1 }) {
 
     //Process all the properties sent in.
     for (let key in properties) {
-      const prop = {
-        key: key
-      };
+      if (!properties.hasOwnProperty(key)) {
+        continue;
+      }
+
+      //Functions can also be passed in.
+      if (typeof properties[key] === 'function') {
+        model.prototype[key] = properties[key];
+        continue;
+      }
 
       //Props can be passed in as a simple definition or a complex one.
       //Simple
@@ -56,15 +62,16 @@ function Models({ middleware = [], changeThrottle = 1 }) {
       //    validators: ..
       //  }
 
-      if (properties[key].constructor === Object && properties[key].type) {
-        prop.type = properties[key].type;
-        prop.validators = properties[key].validators;
-        prop.default = properties[key].default;
-        prop.virtual = !!properties[key].virtual;
-        prop.listen = !!properties[key].listen;
-      } else {
-        prop.type = properties[key];
-      }
+      const prop =
+        properties[key].constructor === Object && properties[key].type
+          ? {
+              key: key,
+              ...properties[key]
+            }
+          : {
+              key: key,
+              type: properties[key]
+            };
 
       //Unpack array types. ie. names: [String]
       if (Array.isArray(prop.type)) {
@@ -100,7 +107,10 @@ function Models({ middleware = [], changeThrottle = 1 }) {
               } else if (prop.type.isModel && val.constructor !== prop.type) {
                 //This value is a model, but it has not been created as a model yet.
                 val = new prop.type(val);
-              } else if (prop.type.isModel && val.constructor === prop.type.model) {
+              } else if (
+                prop.type.isModel &&
+                val.constructor === prop.type.model
+              ) {
                 //This value is a model, and it is coming from another object? Clone it.
                 val = new prop.type(val.toJSON());
               }

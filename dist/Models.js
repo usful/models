@@ -524,9 +524,15 @@ function Models(_ref) {
     //Process all the properties sent in.
 
     var _loop = function _loop(key) {
-      var prop = {
-        key: key
-      };
+      if (!properties.hasOwnProperty(key)) {
+        return 'continue';
+      }
+
+      //Functions can also be passed in.
+      if (typeof properties[key] === 'function') {
+        model.prototype[key] = properties[key];
+        return 'continue';
+      }
 
       //Props can be passed in as a simple definition or a complex one.
       //Simple
@@ -538,15 +544,12 @@ function Models(_ref) {
       //    validators: ..
       //  }
 
-      if (properties[key].constructor === Object && properties[key].type) {
-        prop.type = properties[key].type;
-        prop.validators = properties[key].validators;
-        prop.default = properties[key].default;
-        prop.virtual = !!properties[key].virtual;
-        prop.listen = !!properties[key].listen;
-      } else {
-        prop.type = properties[key];
-      }
+      var prop = properties[key].constructor === Object && properties[key].type ? _extends({
+        key: key
+      }, properties[key]) : {
+        key: key,
+        type: properties[key]
+      };
 
       //Unpack array types. ie. names: [String]
       if (Array.isArray(prop.type)) {
@@ -582,7 +585,7 @@ function Models(_ref) {
               } else if (prop.type.isModel && val.constructor !== prop.type) {
                 //This value is a model, but it has not been created as a model yet.
                 val = new prop.type(val);
-              } else if (prop.type.isModel && val.constructor === prop.type) {
+              } else if (prop.type.isModel && val.constructor === prop.type.model) {
                 //This value is a model, and it is coming from another object? Clone it.
                 val = new prop.type(val.toJSON());
               }
@@ -606,7 +609,9 @@ function Models(_ref) {
     };
 
     for (var key in properties) {
-      _loop(key);
+      var _ret = _loop(key);
+
+      if (_ret === 'continue') continue;
     }
 
     model.prototype.__changed = function (key) {
@@ -731,7 +736,9 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 var EventEmitter = _fbemitter2.default.EventEmitter;
 
 
-var FUNCTIONS = ['sort', 'reverse', 'join', 'forEach', 'slice', 'concat', 'includes', 'reduce', 'map', 'filter', 'find', 'findIndex', 'some', 'indexOf'];
+var ARRAY_FUNCTIONS = ['sort', 'filter', 'join', 'reverse', 'slice', 'concat'];
+
+var FUNCTIONS = ['forEach', 'includes', 'reduce', 'map', 'find', 'findIndex', 'some', 'indexOf'];
 
 var TypedArrayIterator = function () {
   _createClass(TypedArrayIterator, null, [{
@@ -968,12 +975,14 @@ var TypedArray = function () {
     key: '_toJSON',
     value: function _toJSON() {
       if (this.isModel) {
-        return this.__array.map(function (item) {
+        this.__json = this.__array.map(function (item) {
           return item ? item.toJSON() : item;
         });
+        return this.__json;
       }
 
-      return [].concat(this.__array);
+      this.__json = [].concat(this.__array);
+      return this.__json;
     }
   }, {
     key: 'toJSON',
@@ -1057,6 +1066,12 @@ var TypedArray = function () {
 
 exports.default = TypedArray;
 
+
+ARRAY_FUNCTIONS.forEach(function (f) {
+  return TypedArray.prototype[f] = function () {
+    return new TypedArray(this.__array[f].apply(this.__array, arguments), this.type);
+  };
+});
 
 FUNCTIONS.forEach(function (f) {
   return TypedArray.prototype[f] = function () {
