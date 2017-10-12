@@ -1,6 +1,8 @@
 import TypedArray from './TypedArray';
 import Middleware from './middleware';
 
+const primitives = [String, Number, Boolean, Array, Date];
+
 function Models({ middleware = [], changeThrottle = 1 }) {
   const definitions = {};
 
@@ -11,10 +13,13 @@ function Models({ middleware = [], changeThrottle = 1 }) {
       }
 
       this.__data = {};
-      this.__json = {};
-      this.__dirty = false;
       this.__parent = null;
       this.__parentKey = null;
+
+      //Call any middleware initializers, if they exist.
+      this.constructor.middleware.forEach(
+        fn => (fn.initialize ? fn.initialize.call(this, data) : null)
+      );
 
       if (data) {
         Object.keys(data).forEach(key => {
@@ -42,28 +47,49 @@ function Models({ middleware = [], changeThrottle = 1 }) {
 
     //Process all the properties sent in.
     for (let key in properties) {
-      const prop = {
+      if (!properties.hasOwnProperty(key)) {
+        continue;
+      }
+
+      const property = properties[key];
+      const descriptor = Object.getOwnPropertyDescriptor(properties, key);
+
+      //Property can be a getter/setter, a function, a simple definition,
+      //a Model, a user defined Type, or a complex definition (wrapped in an object)
+
+      //This is a getter or setter passed in.
+      if (descriptor.get || descriptor.set) {
+        Object.defineProperty(model.prototype, key, descriptor.get);
+        Object.defineProperty(model.prototype, key, descriptor.set);
+        continue;
+      }
+
+      let prop = {
         key: key
       };
 
-      //Props can be passed in as a simple definition or a complex one.
-      //Simple
-      //  name: String
-      //
-      //Complex
-      //  name: {
-      //    type: String,
-      //    validators: ..
-      //  }
-
-      if (properties[key].constructor === Object && properties[key].type) {
-        prop.type = properties[key].type;
-        prop.validators = properties[key].validators;
-        prop.default = properties[key].default;
-        prop.virtual = !!properties[key].virtual;
-        prop.listen = !!properties[key].listen;
-      } else {
-        prop.type = properties[key];
+      if (typeof descriptor.value === 'object' && descriptor.value.type) {
+        //This is a complex type definition being passed in.
+        prop = {
+          key: key,
+          ...property
+        };
+      } else if (typeof descriptor.value === 'string') {
+        //This is a lazy reference to another model being passed in.  Will be dealt with later.
+        prop.type = descriptor.value;
+      } else if (primitives.includes(descriptor.value)) {
+        //This is a primitive type, defined simply.
+        prop.type = descriptor.value;
+      } else if (
+        typeof descriptor.value === 'function' &&
+        descriptor.value.isModel
+      ) {
+        //This is a model definition that was passed in.
+        prop.type = descriptor.value;
+      } else if (typeof descriptor.value === 'function') {
+        //Some other kind of function passed in.
+        model.prototype[key] = descriptor.value;
+        continue;
       }
 
       //Unpack array types. ie. names: [String]
@@ -100,7 +126,10 @@ function Models({ middleware = [], changeThrottle = 1 }) {
               } else if (prop.type.isModel && val.constructor !== prop.type) {
                 //This value is a model, but it has not been created as a model yet.
                 val = new prop.type(val);
-              } else if (prop.type.isModel && val.constructor === prop.type.model) {
+              } else if (
+                prop.type.isModel &&
+                val.constructor === prop.type.model
+              ) {
                 //This value is a model, and it is coming from another object? Clone it.
                 val = new prop.type(val.toJSON());
               }
@@ -154,7 +183,6 @@ function Models({ middleware = [], changeThrottle = 1 }) {
           .filter(prop => typeof prop.type === 'string')
           .forEach(prop => {
             if (definitions[prop.type]) {
-              console.log('Fixing', modelName, prop.key, prop.type);
               prop.type = definitions[prop.type];
             }
           });
@@ -163,10 +191,12 @@ function Models({ middleware = [], changeThrottle = 1 }) {
       return model;
     }
 
-    addMiddleware(middleware) {
+    addMiddleware(mw) {
       for (let definition in definitions) {
-        middleware(definitions[definition]);
+        mw(definitions[definition]);
       }
+
+      middleware.push(mw);
     }
 
     get definitions() {

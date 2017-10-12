@@ -462,6 +462,8 @@ Object.defineProperty(exports, "__esModule", {
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
+var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; };
+
 var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; };
 
 var _TypedArray = __webpack_require__(6);
@@ -475,6 +477,8 @@ var _middleware2 = _interopRequireDefault(_middleware);
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+var primitives = [String, Number, Boolean, Array, Date];
 
 function Models(_ref) {
   var _ref$middleware = _ref.middleware,
@@ -524,28 +528,45 @@ function Models(_ref) {
     //Process all the properties sent in.
 
     var _loop = function _loop(key) {
+      if (!properties.hasOwnProperty(key)) {
+        return 'continue';
+      }
+
+      var property = properties[key];
+      var descriptor = Object.getOwnPropertyDescriptor(properties, key);
+
+      //Property can be a getter/setter, a function, a simple definition,
+      //a Model, a user defined Type, or a complex definition (wrapped in an object)
+
+      //This is a getter or setter passed in.
+      if (descriptor.get || descriptor.set) {
+        Object.defineProperty(model.prototype, key, descriptor.get);
+        Object.defineProperty(model.prototype, key, descriptor.set);
+        return 'continue';
+      }
+
       var prop = {
         key: key
       };
 
-      //Props can be passed in as a simple definition or a complex one.
-      //Simple
-      //  name: String
-      //
-      //Complex
-      //  name: {
-      //    type: String,
-      //    validators: ..
-      //  }
-
-      if (properties[key].constructor === Object && properties[key].type) {
-        prop.type = properties[key].type;
-        prop.validators = properties[key].validators;
-        prop.default = properties[key].default;
-        prop.virtual = !!properties[key].virtual;
-        prop.listen = !!properties[key].listen;
-      } else {
-        prop.type = properties[key];
+      if (_typeof(descriptor.value) === 'object' && descriptor.value.type) {
+        //This is a complex type definition being passed in.
+        prop = _extends({
+          key: key
+        }, property);
+      } else if (typeof descriptor.value === 'string') {
+        //This is a lazy reference to another model being passed in.  Will be dealt with later.
+        prop.type = descriptor.value;
+      } else if (primitives.includes(descriptor.value)) {
+        //This is a primitive type, defined simply.
+        prop.type = descriptor.value;
+      } else if (typeof descriptor.value === 'function' && descriptor.value.isModel) {
+        //This is a model definition that was passed in.
+        prop.type = descriptor.value;
+      } else if (typeof descriptor.value === 'function') {
+        //Some other kind of function passed in.
+        model.prototype[key] = descriptor.value;
+        return 'continue';
       }
 
       //Unpack array types. ie. names: [String]
@@ -582,7 +603,7 @@ function Models(_ref) {
               } else if (prop.type.isModel && val.constructor !== prop.type) {
                 //This value is a model, but it has not been created as a model yet.
                 val = new prop.type(val);
-              } else if (prop.type.isModel && val.constructor === prop.type) {
+              } else if (prop.type.isModel && val.constructor === prop.type.model) {
                 //This value is a model, and it is coming from another object? Clone it.
                 val = new prop.type(val.toJSON());
               }
@@ -606,7 +627,9 @@ function Models(_ref) {
     };
 
     for (var key in properties) {
-      _loop(key);
+      var _ret = _loop(key);
+
+      if (_ret === 'continue') continue;
     }
 
     model.prototype.__changed = function (key) {
@@ -731,7 +754,9 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 var EventEmitter = _fbemitter2.default.EventEmitter;
 
 
-var FUNCTIONS = ['sort', 'reverse', 'join', 'forEach', 'slice', 'concat', 'includes', 'reduce', 'map', 'filter', 'find', 'findIndex', 'some', 'indexOf'];
+var ARRAY_FUNCTIONS = ['sort', 'filter', 'join', 'reverse', 'slice', 'concat'];
+
+var FUNCTIONS = ['forEach', 'includes', 'reduce', 'map', 'find', 'findIndex', 'some', 'indexOf'];
 
 var TypedArrayIterator = function () {
   _createClass(TypedArrayIterator, null, [{
@@ -968,12 +993,14 @@ var TypedArray = function () {
     key: '_toJSON',
     value: function _toJSON() {
       if (this.isModel) {
-        return this.__array.map(function (item) {
+        this.__json = this.__array.map(function (item) {
           return item ? item.toJSON() : item;
         });
+        return this.__json;
       }
 
-      return [].concat(this.__array);
+      this.__json = [].concat(this.__array);
+      return this.__json;
     }
   }, {
     key: 'toJSON',
@@ -1057,6 +1084,12 @@ var TypedArray = function () {
 
 exports.default = TypedArray;
 
+
+ARRAY_FUNCTIONS.forEach(function (f) {
+  return TypedArray.prototype[f] = function () {
+    return new TypedArray(this.__array[f].apply(this.__array, arguments), this.type);
+  };
+});
 
 FUNCTIONS.forEach(function (f) {
   return TypedArray.prototype[f] = function () {
