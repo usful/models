@@ -59,8 +59,10 @@ function Models({ middleware = [], changeThrottle = 1 }) {
 
       //This is a getter or setter passed in.
       if (descriptor.get || descriptor.set) {
-        Object.defineProperty(model.prototype, key, descriptor.get);
-        Object.defineProperty(model.prototype, key, descriptor.set);
+        Object.defineProperty(model.prototype, key, {
+          get: descriptor.get,
+          set: descriptor.set
+        });
         continue;
       }
 
