@@ -2,7 +2,7 @@
   "name": "models",
   "version": "2.1.0",
   "description": "Models",
-  "main": "dist/Models.js",
+  "main": "src/Models.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "webpack"

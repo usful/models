@@ -1,6 +1,6 @@
 import eventsMiddleware from '../events';
 
-export default function(model) {
+function immutableMiddleware(model) {
   model.prototype.valueOf = function() {
     return this.__json;
   };
@@ -26,7 +26,7 @@ export default function(model) {
       );
 
     this.__json = data;
-    this.__dirty = null;
+    this.__dirty = false;
 
     if (this.constructor.middleware.includes(eventsMiddleware)) {
       this.emit('change', data);
@@ -34,7 +34,6 @@ export default function(model) {
   };
 
   model.prototype.__changed = function(key) {
-    console.log(this.constructor.model, '__changed', key);
     if (!this.__dirty) {
       this.__dirty = setTimeout(
         () => this.__flush(),
@@ -49,3 +48,10 @@ export default function(model) {
     this.__changed2(key);
   };
 }
+
+immutableMiddleware.initialize = function(data) {
+  this.__json = {};
+  this.__dirty = false;
+};
+
+export default immutableMiddleware;
