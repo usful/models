@@ -41,12 +41,11 @@ function Models({ middleware = [], changeThrottle = 1 }) {
 
     //Store the model definition for later.
     model.def = {
-      ...properties,
       props: []
     };
 
     //Process all the properties sent in.
-    for (let key in properties) {
+    for (let key in Object.keys(properties)) {
       if (!properties.hasOwnProperty(key)) {
         continue;
       }
@@ -59,14 +58,22 @@ function Models({ middleware = [], changeThrottle = 1 }) {
 
       //This is a getter or setter passed in.
       if (descriptor.get || descriptor.set) {
-        Object.defineProperty(model.prototype, key, descriptor.get);
-        Object.defineProperty(model.prototype, key, descriptor.set);
+        Object.defineProperty(model.prototype, key, {
+          get: descriptor.get,
+          set: descriptor.set
+        });
         continue;
       }
 
       let prop = {
         key: key
       };
+
+      //Unpack array types. ie. names: [String]
+      if (Array.isArray(descriptor.value)) {
+        prop.type = descriptor.value[0];
+        prop.isArray = true;
+      }
 
       if (typeof descriptor.value === 'object' && descriptor.value.type) {
         //This is a complex type definition being passed in.
@@ -90,12 +97,6 @@ function Models({ middleware = [], changeThrottle = 1 }) {
         //Some other kind of function passed in.
         model.prototype[key] = descriptor.value;
         continue;
-      }
-
-      //Unpack array types. ie. names: [String]
-      if (Array.isArray(prop.type)) {
-        prop.type = prop.type[0];
-        prop.isArray = true;
       }
 
       //Setup the getters and setter for this guy.
@@ -141,7 +142,7 @@ function Models({ middleware = [], changeThrottle = 1 }) {
 
           this.__data[prop.key] = val;
 
-          if (!!prop.listen) {
+          if (prop.listen !== false) {
             this.__changed(prop.key);
           }
         },
@@ -223,9 +224,9 @@ Models.TypedArray = TypedArray;
 export default Models;
 
 /**
-const Template = new Models.Document('Template', {name: String});
-const template = new Template({name: 'Test'});
-
-template.validate();
-template.addListener('changed', (data) => console.log(data));
-*/
+ const Template = new Models.Document('Template', {name: String});
+ const template = new Template({name: 'Test'});
+ 
+ template.validate();
+ template.addListener('changed', (data) => console.log(data));
+ */
