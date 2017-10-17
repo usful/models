@@ -45,7 +45,7 @@ function Models({ middleware = [], changeThrottle = 1 }) {
     };
 
     //Process all the properties sent in.
-    for (let key in Object.keys(properties)) {
+    for (let key of Object.keys(properties)) {
       if (!properties.hasOwnProperty(key)) {
         continue;
       }
@@ -109,6 +109,7 @@ function Models({ middleware = [], changeThrottle = 1 }) {
             //TODO: dates could have some more weirdness.
             val = new Date(val);
           } else if (prop.type.isModel || prop.isArray) {
+
             // If this type is a model (deep object) or an array, we need to be able to propagate changes later.
             //We also need to clear parent values from the old values if they exist for garbage collection.
             if (this.__data[prop.key]) {

@@ -58,6 +58,7 @@ export default class TypedArray {
 
     //Cast any children.
     if (this.isModel) {
+
       this.__array = this.__array.map(
         item =>
           !item || item.constructor === this.type ? item : new this.type(item)
@@ -299,10 +300,15 @@ export default class TypedArray {
 ARRAY_FUNCTIONS.forEach(
   f =>
     (TypedArray.prototype[f] = function() {
-      return new TypedArray(
+      const newArr = new TypedArray(
         this.__array[f].apply(this.__array, arguments),
         this.type
       );
+
+      newArr.__parent = this.__parent;
+      newArr.__parentKey = this.__parentKey;
+
+      return newArr;
     })
 );
 
