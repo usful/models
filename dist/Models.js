@@ -462,9 +462,9 @@ Object.defineProperty(exports, "__esModule", {
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
-var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; };
-
 var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; };
+
+var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; };
 
 var _TypedArray = __webpack_require__(6);
 
@@ -497,10 +497,13 @@ function Models(_ref) {
       }
 
       this.__data = {};
-      this.__json = {};
-      this.__dirty = false;
       this.__parent = null;
       this.__parentKey = null;
+
+      //Call any middleware initializers, if they exist.
+      this.constructor.middleware.forEach(function (fn) {
+        return fn.initialize ? fn.initialize.call(_this, data) : null;
+      });
 
       if (data) {
         Object.keys(data).forEach(function (key) {
@@ -521,115 +524,138 @@ function Models(_ref) {
     model.changeThrottle = changeThrottle;
 
     //Store the model definition for later.
-    model.def = _extends({}, properties, {
+    model.def = {
       props: []
-    });
-
-    //Process all the properties sent in.
-
-    var _loop = function _loop(key) {
-      if (!properties.hasOwnProperty(key)) {
-        return 'continue';
-      }
-
-      var property = properties[key];
-      var descriptor = Object.getOwnPropertyDescriptor(properties, key);
-
-      //Property can be a getter/setter, a function, a simple definition,
-      //a Model, a user defined Type, or a complex definition (wrapped in an object)
-
-      //This is a getter or setter passed in.
-      if (descriptor.get || descriptor.set) {
-        Object.defineProperty(model.prototype, key, descriptor.get);
-        Object.defineProperty(model.prototype, key, descriptor.set);
-        return 'continue';
-      }
-
-      var prop = {
-        key: key
-      };
-
-      if (_typeof(descriptor.value) === 'object' && descriptor.value.type) {
-        //This is a complex type definition being passed in.
-        prop = _extends({
-          key: key
-        }, property);
-      } else if (typeof descriptor.value === 'string') {
-        //This is a lazy reference to another model being passed in.  Will be dealt with later.
-        prop.type = descriptor.value;
-      } else if (primitives.includes(descriptor.value)) {
-        //This is a primitive type, defined simply.
-        prop.type = descriptor.value;
-      } else if (typeof descriptor.value === 'function' && descriptor.value.isModel) {
-        //This is a model definition that was passed in.
-        prop.type = descriptor.value;
-      } else if (typeof descriptor.value === 'function') {
-        //Some other kind of function passed in.
-        model.prototype[key] = descriptor.value;
-        return 'continue';
-      }
-
-      //Unpack array types. ie. names: [String]
-      if (Array.isArray(prop.type)) {
-        prop.type = prop.type[0];
-        prop.isArray = true;
-      }
-
-      //Setup the getters and setter for this guy.
-      Object.defineProperty(model.prototype, prop.key, {
-        get: function get() {
-          return this.__data[prop.key];
-        },
-        set: function set(val) {
-          if (prop.type === Date && val) {
-            //TODO: dates could have some more weirdness.
-            val = new Date(val);
-          } else if (prop.type.isModel || prop.isArray) {
-            // If this type is a model (deep object) or an array, we need to be able to propagate changes later.
-            //We also need to clear parent values from the old values if they exist for garbage collection.
-            if (this.__data[prop.key]) {
-              //TODO: what about arrays with parentKeys? Do we need to clear all of them, then reset again?
-              this.__data[prop.key].__parent = null;
-              this.__data[prop.key].__parentKey = null;
-            }
-
-            if (val !== null && val !== undefined) {
-              if (prop.isArray && !val.isTypedArray) {
-                //This prop type is an array, and you are not setting a TypedArray, we will cast it for you.
-                val = new _TypedArray2.default(val, prop.type);
-              } else if (prop.isArray && val.isTypedArray) {
-                //Clone it, because this is coming from another object?
-                val = new _TypedArray2.default(val.toJSON(), prop.type);
-              } else if (prop.type.isModel && val.constructor !== prop.type) {
-                //This value is a model, but it has not been created as a model yet.
-                val = new prop.type(val);
-              } else if (prop.type.isModel && val.constructor === prop.type.model) {
-                //This value is a model, and it is coming from another object? Clone it.
-                val = new prop.type(val.toJSON());
-              }
-
-              val.__parent = this;
-              val.__parentKey = prop.key;
-            }
-          }
-
-          this.__data[prop.key] = val;
-
-          if (!!prop.listen) {
-            this.__changed(prop.key);
-          }
-        },
-        configurable: false,
-        enumerable: true
-      });
-
-      model.def.props.push(prop);
     };
 
-    for (var key in properties) {
-      var _ret = _loop(key);
+    //Process all the properties sent in.
+    var _iteratorNormalCompletion = true;
+    var _didIteratorError = false;
+    var _iteratorError = undefined;
 
-      if (_ret === 'continue') continue;
+    try {
+      var _loop = function _loop() {
+        var key = _step.value;
+
+        if (!properties.hasOwnProperty(key)) {
+          return 'continue';
+        }
+
+        var property = properties[key];
+        var descriptor = Object.getOwnPropertyDescriptor(properties, key);
+
+        //Property can be a getter/setter, a function, a simple definition,
+        //a Model, a user defined Type, or a complex definition (wrapped in an object)
+
+        //This is a getter or setter passed in.
+        if (descriptor.get || descriptor.set) {
+          Object.defineProperty(model.prototype, key, {
+            get: descriptor.get,
+            set: descriptor.set
+          });
+          return 'continue';
+        }
+
+        var prop = {
+          key: key
+        };
+
+        //Unpack array types. ie. names: [String]
+        if (Array.isArray(descriptor.value)) {
+          prop.type = descriptor.value[0];
+          prop.isArray = true;
+        }
+
+        if (_typeof(descriptor.value) === 'object' && descriptor.value.type) {
+          //This is a complex type definition being passed in.
+          prop = _extends({
+            key: key
+          }, property);
+        } else if (typeof descriptor.value === 'string') {
+          //This is a lazy reference to another model being passed in.  Will be dealt with later.
+          prop.type = descriptor.value;
+        } else if (primitives.includes(descriptor.value)) {
+          //This is a primitive type, defined simply.
+          prop.type = descriptor.value;
+        } else if (typeof descriptor.value === 'function' && descriptor.value.isModel) {
+          //This is a model definition that was passed in.
+          prop.type = descriptor.value;
+        } else if (typeof descriptor.value === 'function') {
+          //Some other kind of function passed in.
+          model.prototype[key] = descriptor.value;
+          return 'continue';
+        }
+
+        //Setup the getters and setter for this guy.
+        Object.defineProperty(model.prototype, prop.key, {
+          get: function get() {
+            return this.__data[prop.key];
+          },
+          set: function set(val) {
+            if (prop.type === Date && val) {
+              //TODO: dates could have some more weirdness.
+              val = new Date(val);
+            } else if (prop.type.isModel || prop.isArray) {
+
+              // If this type is a model (deep object) or an array, we need to be able to propagate changes later.
+              //We also need to clear parent values from the old values if they exist for garbage collection.
+              if (this.__data[prop.key]) {
+                //TODO: what about arrays with parentKeys? Do we need to clear all of them, then reset again?
+                this.__data[prop.key].__parent = null;
+                this.__data[prop.key].__parentKey = null;
+              }
+
+              if (val !== null && val !== undefined) {
+                if (prop.isArray && !val.isTypedArray) {
+                  //This prop type is an array, and you are not setting a TypedArray, we will cast it for you.
+                  val = new _TypedArray2.default(val, prop.type);
+                } else if (prop.isArray && val.isTypedArray) {
+                  //Clone it, because this is coming from another object?
+                  val = new _TypedArray2.default(val.toJSON(), prop.type);
+                } else if (prop.type.isModel && val.constructor !== prop.type) {
+                  //This value is a model, but it has not been created as a model yet.
+                  val = new prop.type(val);
+                } else if (prop.type.isModel && val.constructor === prop.type.model) {
+                  //This value is a model, and it is coming from another object? Clone it.
+                  val = new prop.type(val.toJSON());
+                }
+
+                val.__parent = this;
+                val.__parentKey = prop.key;
+              }
+            }
+
+            this.__data[prop.key] = val;
+
+            if (prop.listen !== false) {
+              this.__changed(prop.key);
+            }
+          },
+          configurable: false,
+          enumerable: true
+        });
+
+        model.def.props.push(prop);
+      };
+
+      for (var _iterator = Object.keys(properties)[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+        var _ret = _loop();
+
+        if (_ret === 'continue') continue;
+      }
+    } catch (err) {
+      _didIteratorError = true;
+      _iteratorError = err;
+    } finally {
+      try {
+        if (!_iteratorNormalCompletion && _iterator.return) {
+          _iterator.return();
+        }
+      } finally {
+        if (_didIteratorError) {
+          throw _iteratorError;
+        }
+      }
     }
 
     model.prototype.__changed = function (key) {
@@ -664,32 +690,28 @@ function Models(_ref) {
 
         //TODO: probably a better way to do this than iterate over all after each model is added.
         //Attached references by name (string passed in as prop type).
-
-        var _loop2 = function _loop2(modelName) {
+        for (var modelName in definitions) {
           var modelDefinition = definitions[modelName];
 
           modelDefinition.def.props.filter(function (prop) {
             return typeof prop.type === 'string';
           }).forEach(function (prop) {
             if (definitions[prop.type]) {
-              console.log('Fixing', modelName, prop.key, prop.type);
               prop.type = definitions[prop.type];
             }
           });
-        };
-
-        for (var modelName in definitions) {
-          _loop2(modelName);
         }
 
         return model;
       }
     }, {
       key: 'addMiddleware',
-      value: function addMiddleware(middleware) {
+      value: function addMiddleware(mw) {
         for (var definition in definitions) {
-          middleware(definitions[definition]);
+          mw(definitions[definition]);
         }
+
+        middleware.push(mw);
       }
     }, {
       key: 'definitions',
@@ -723,12 +745,12 @@ Models.TypedArray = _TypedArray2.default;
 exports.default = Models;
 
 /**
-const Template = new Models.Document('Template', {name: String});
-const template = new Template({name: 'Test'});
-
-template.validate();
-template.addListener('changed', (data) => console.log(data));
-*/
+ const Template = new Models.Document('Template', {name: String});
+ const template = new Template({name: 'Test'});
+ 
+ template.validate();
+ template.addListener('changed', (data) => console.log(data));
+ */
 
 /***/ }),
 /* 6 */
@@ -810,6 +832,7 @@ var TypedArray = function () {
 
     //Cast any children.
     if (this.isModel) {
+
       this.__array = this.__array.map(function (item) {
         return !item || item.constructor === _this.type ? item : new _this.type(item);
       });
@@ -1087,7 +1110,12 @@ exports.default = TypedArray;
 
 ARRAY_FUNCTIONS.forEach(function (f) {
   return TypedArray.prototype[f] = function () {
-    return new TypedArray(this.__array[f].apply(this.__array, arguments), this.type);
+    var newArr = new TypedArray(this.__array[f].apply(this.__array, arguments), this.type);
+
+    newArr.__parent = this.__parent;
+    newArr.__parentKey = this.__parentKey;
+
+    return newArr;
   };
 });
 
@@ -1985,7 +2013,13 @@ Object.defineProperty(exports, "__esModule", {
 
 var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; };
 
-exports.default = function (model) {
+var _events = __webpack_require__(4);
+
+var _events2 = _interopRequireDefault(_events);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+function immutableMiddleware(model) {
   model.prototype.valueOf = function () {
     return this.__json;
   };
@@ -2006,7 +2040,7 @@ exports.default = function (model) {
     });
 
     this.__json = data;
-    this.__dirty = null;
+    this.__dirty = false;
 
     if (this.constructor.middleware.includes(_events2.default)) {
       this.emit('change', data);
@@ -2016,7 +2050,6 @@ exports.default = function (model) {
   model.prototype.__changed = function (key) {
     var _this = this;
 
-    console.log(this.constructor.model, '__changed', key);
     if (!this.__dirty) {
       this.__dirty = setTimeout(function () {
         return _this.__flush();
@@ -2029,13 +2062,14 @@ exports.default = function (model) {
 
     this.__changed2(key);
   };
+}
+
+immutableMiddleware.initialize = function (data) {
+  this.__json = {};
+  this.__dirty = false;
 };
 
-var _events = __webpack_require__(4);
-
-var _events2 = _interopRequireDefault(_events);
-
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+exports.default = immutableMiddleware;
 
 /***/ })
 /******/ ]);

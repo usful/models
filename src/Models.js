@@ -41,12 +41,11 @@ function Models({ middleware = [], changeThrottle = 1 }) {
 
     //Store the model definition for later.
     model.def = {
-      ...properties,
       props: []
     };
 
     //Process all the properties sent in.
-    for (let key in properties) {
+    for (let key of Object.keys(properties)) {
       if (!properties.hasOwnProperty(key)) {
         continue;
       }
@@ -69,6 +68,12 @@ function Models({ middleware = [], changeThrottle = 1 }) {
       let prop = {
         key: key
       };
+
+      //Unpack array types. ie. names: [String]
+      if (Array.isArray(descriptor.value)) {
+        prop.type = descriptor.value[0];
+        prop.isArray = true;
+      }
 
       if (typeof descriptor.value === 'object' && descriptor.value.type) {
         //This is a complex type definition being passed in.
@@ -94,12 +99,6 @@ function Models({ middleware = [], changeThrottle = 1 }) {
         continue;
       }
 
-      //Unpack array types. ie. names: [String]
-      if (Array.isArray(prop.type)) {
-        prop.type = prop.type[0];
-        prop.isArray = true;
-      }
-
       //Setup the getters and setter for this guy.
       Object.defineProperty(model.prototype, prop.key, {
         get: function() {
@@ -110,6 +109,7 @@ function Models({ middleware = [], changeThrottle = 1 }) {
             //TODO: dates could have some more weirdness.
             val = new Date(val);
           } else if (prop.type.isModel || prop.isArray) {
+
             // If this type is a model (deep object) or an array, we need to be able to propagate changes later.
             //We also need to clear parent values from the old values if they exist for garbage collection.
             if (this.__data[prop.key]) {
@@ -143,7 +143,7 @@ function Models({ middleware = [], changeThrottle = 1 }) {
 
           this.__data[prop.key] = val;
 
-          if (!!prop.listen) {
+          if (prop.listen !== false) {
             this.__changed(prop.key);
           }
         },
@@ -225,9 +225,9 @@ Models.TypedArray = TypedArray;
 export default Models;
 
 /**
-const Template = new Models.Document('Template', {name: String});
-const template = new Template({name: 'Test'});
-
-template.validate();
-template.addListener('changed', (data) => console.log(data));
-*/
+ const Template = new Models.Document('Template', {name: String});
+ const template = new Template({name: 'Test'});
+ 
+ template.validate();
+ template.addListener('changed', (data) => console.log(data));
+ */
