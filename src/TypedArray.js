@@ -60,7 +60,6 @@ export default class TypedArray {
 
     //Cast any children.
     if (this.isModel) {
-
       this.__array = this.__array.map(
         item =>
           !item || item.constructor === this.type ? item : new this.type(item)
@@ -131,10 +130,16 @@ export default class TypedArray {
     }
   }
 
-
   __flush() {
     if (this.isModel) {
-      this.__json = this.__array.map(item => (item ? item.toJSON() : item));
+      this.__json = this.__array.map(item => {
+        if (item) {
+          item.__flush();
+          return item.toJSON();
+        } else {
+          return item;
+        }
+      });
     } else {
       this.__json = [].concat(this.__array);
     }
@@ -142,9 +147,9 @@ export default class TypedArray {
     this.__dirty = false;
 
     //if (this.constructor.middleware.includes(eventsMiddleware)) {
-      this.emit('change', this.__json);
+    this.emit('change', this.__json);
     //}
-  };
+  }
 
   __changed(key) {
     if (!this.__dirty) {
@@ -161,7 +166,7 @@ export default class TypedArray {
     if (this.__parent) {
       this.__parent.__changed(this.__parentKey);
     }
-  };
+  }
 
   /**
    * Iterator implementation.
@@ -261,11 +266,11 @@ export default class TypedArray {
 
   valueOf() {
     return this.__json;
-  };
+  }
 
   toJSON() {
     return this.__json;
-  };
+  }
 
   /**
    * Returns an new plain Array with the contents that were in this TypedArray instance.
