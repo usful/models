@@ -18,12 +18,15 @@ function immutableMiddleware(model) {
 
     this.constructor.def.props
       .filter(prop => !prop.virtual && (prop.type.isModel || prop.isArray))
-      .forEach(
-        prop =>
-          (data[prop.key] = data[prop.key]
-            ? data[prop.key].toJSON()
-            : data[prop.key])
-      );
+      .forEach(prop => {
+        const val = data[prop.key];
+        if (val) {
+          val.__flush();
+          return val.toJSON();
+        } else {
+          return val;
+        }
+      });
 
     this.__json = data;
     this.__dirty = false;

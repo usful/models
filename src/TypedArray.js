@@ -46,6 +46,8 @@ class TypedArrayIterator {
 }
 
 export default class TypedArray {
+  static changeThrottle = 1;
+
   constructor(items, type) {
     this.__array = Array.isArray(items) ? [].concat(items) : [items];
     this.__parent = null;
@@ -58,7 +60,6 @@ export default class TypedArray {
 
     //Cast any children.
     if (this.isModel) {
-
       this.__array = this.__array.map(
         item =>
           !item || item.constructor === this.type ? item : new this.type(item)
@@ -68,7 +69,10 @@ export default class TypedArray {
     //Set any initial children.
     this.setParents();
 
-    this.__json = this._toJSON();
+    //Flush the data.
+    if (this.__flush) {
+      this.__flush();
+    }
   }
 
   defineIndexProperty(index) {
@@ -126,10 +130,38 @@ export default class TypedArray {
     }
   }
 
-  __changed(index) {
-    this.__json = this._toJSON();
+  __flush() {
+    if (this.isModel) {
+      this.__json = this.__array.map(item => {
+        if (item) {
+          item.__flush();
+          return item.toJSON();
+        } else {
+          return item;
+        }
+      });
+    } else {
+      this.__json = [].concat(this.__array);
+    }
 
-    this.emit('change', index);
+    this.__dirty = false;
+
+    //if (this.constructor.middleware.includes(eventsMiddleware)) {
+    this.emit('change', this.__json);
+    //}
+  }
+
+  __changed(key) {
+    if (!this.__dirty) {
+      this.__dirty = setTimeout(
+        () => this.__flush(),
+        this.constructor.changeThrottle
+      );
+    }
+
+    //if (this.constructor.middleware.includes(eventsMiddleware)) {
+    this.emit(`${key}Changed`);
+    //}
 
     if (this.__parent) {
       this.__parent.__changed(this.__parentKey);
@@ -233,16 +265,6 @@ export default class TypedArray {
   }
 
   valueOf() {
-    return this.__json;
-  }
-
-  _toJSON() {
-    if (this.isModel) {
-      this.__json = this.__array.map(item => (item ? item.toJSON() : item));
-      return this.__json;
-    }
-
-    this.__json = [].concat(this.__array);
     return this.__json;
   }
 
