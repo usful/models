@@ -29,7 +29,7 @@ function Models({ middleware = [], changeThrottle = 1 }) {
         });
 
         //Flush the data.
-        if (this.__flush()) {
+        if (this.__flush) {
           this.__flush();
         }
       }
@@ -105,9 +105,10 @@ function Models({ middleware = [], changeThrottle = 1 }) {
           return this.__data[prop.key];
         },
         set: function(val) {
+          let newVal = val;
           if (prop.type === Date && val) {
             //TODO: dates could have some more weirdness.
-            val = new Date(val);
+            newVal = new Date(val);
           } else if (prop.type.isModel || prop.isArray) {
 
             // If this type is a model (deep object) or an array, we need to be able to propagate changes later.
@@ -121,27 +122,29 @@ function Models({ middleware = [], changeThrottle = 1 }) {
             if (val !== null && val !== undefined) {
               if (prop.isArray && !val.isTypedArray) {
                 //This prop type is an array, and you are not setting a TypedArray, we will cast it for you.
-                val = new TypedArray(val, prop.type);
+                newVal = new TypedArray(val, prop.type);
               } else if (prop.isArray && val.isTypedArray) {
                 //Clone it, because this is coming from another object?
-                val = new TypedArray(val.toJSON(), prop.type);
+                newVal = new TypedArray(val.toJSON(), prop.type);
               } else if (prop.type.isModel && val.constructor !== prop.type) {
                 //This value is a model, but it has not been created as a model yet.
-                val = new prop.type(val);
+                newVal = new prop.type(val);
               } else if (
                 prop.type.isModel &&
                 val.constructor === prop.type.model
               ) {
                 //This value is a model, and it is coming from another object? Clone it.
-                val = new prop.type(val.toJSON());
+                newVal = new prop.type(val.toJSON());
               }
 
-              val.__parent = this;
-              val.__parentKey = prop.key;
+              newVal.__parent = this;
+              newVal.__parentKey = prop.key;
             }
+          } else {
+            newVal = val;
           }
 
-          this.__data[prop.key] = val;
+          this.__data[prop.key] = newVal;
 
           if (prop.listen !== false) {
             this.__changed(prop.key);
