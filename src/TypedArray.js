@@ -21,6 +21,32 @@ const FUNCTIONS = [
   'indexOf'
 ];
 
+const cast = (val, type) => {
+  let newVal = val;
+  
+  if (type === Date && val && val.constructor !== Date) {
+    //TODO: dates could have some more weirdness.
+    newVal = new Date(val);
+  } else if (type.isModel) {
+    
+    if (val !== null && val !== undefined) {
+      if (val.constructor !== type) {
+        //This value is a model, but it has not been created as a model yet.
+        newVal = new type(val);
+      } else if (
+        type.isModel &&
+        val.constructor === type.model
+      ) {
+        //This value is a model, and it is coming from another object? Clone it.
+        newVal = new type(val.toJSON());
+      }
+    }
+  } else {
+    newVal = val;
+  }
+  
+  return newVal;
+}
 class TypedArrayIterator {
   static isTypedArray(obj) {
     return !obj ? false : this === obj.constructor;
@@ -84,20 +110,24 @@ export default class TypedArray {
           return this.__array[index];
         },
         set: function(val) {
-          if (this.type.isModel) {
-            //Clear out references for garbage collection
-            if (this.__array[index]) {
-              this.__array[index].__parent = null;
-              this.__array[index].__parentKey = null;
-            }
+          let newVal = cast(val, this.type);
 
-            if (val) {
-              val.__parent = this;
-              val.__parentKey = index;
+          if (this.type.isModel) {
+            // If this type is a model (deep object) or an array, we need to be able to propagate changes later.
+            //We also need to clear parent values from the old values if they exist for garbage collection.
+            if (this.__array[index]) {
+              //Clear out references for garbage collection
+                this.__array[index].__parent = null;
+                this.__array[index].__parentKey = null;
             }
+      
+            newVal.__parent = this;
+            newVal.__parentKey = index;
+          } else {
+            newVal = val;
           }
 
-          this.__array[index] = val;
+          this.__array[index] = newVal;
           this.__changed(index);
         }
       });
@@ -181,7 +211,9 @@ export default class TypedArray {
   }
 
   push(item) {
-    this.__array.push(item);
+    let newVal = cast(item, this.type);
+    
+    this.__array.push(newVal);
     this.defineIndexProperty(this.length - 1);
     this.setParents();
     this.__changed(this.length - 1);
