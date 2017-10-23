@@ -23,12 +23,12 @@ const FUNCTIONS = [
 
 const cast = (val, type) => {
   let newVal = val;
-  
+
   if (type === Date && val && val.constructor !== Date) {
     //TODO: dates could have some more weirdness.
     newVal = new Date(val);
   } else if (type.isModel) {
-    
+
     if (val !== null && val !== undefined) {
       if (val.constructor !== type) {
         //This value is a model, but it has not been created as a model yet.
@@ -44,7 +44,7 @@ const cast = (val, type) => {
   } else {
     newVal = val;
   }
-  
+
   return newVal;
 }
 class TypedArrayIterator {
@@ -74,6 +74,20 @@ class TypedArrayIterator {
 export default class TypedArray {
   static changeThrottle = 1;
 
+  __cast(val) {
+    if (!this.isModel) {
+      return val;
+    } else if (this.isModel) {
+      if (val && val.constructor === this.type) {
+        return val;
+      } else if (val && val.constructor!== this.type) {
+        return new this.type(val);
+      } else {
+        return val;
+      }
+    }
+  }
+
   constructor(items, type) {
     this.__array = Array.isArray(items) ? [].concat(items) : [items];
     this.__parent = null;
@@ -87,8 +101,7 @@ export default class TypedArray {
     //Cast any children.
     if (this.isModel) {
       this.__array = this.__array.map(
-        item =>
-          !item || item.constructor === this.type ? item : new this.type(item)
+        item => this.__cast(item)
       );
     }
 
@@ -110,21 +123,19 @@ export default class TypedArray {
           return this.__array[index];
         },
         set: function(val) {
-          let newVal = cast(val, this.type);
+          const newVal = this.__cast(val);
 
           if (this.type.isModel) {
-            // If this type is a model (deep object) or an array, we need to be able to propagate changes later.
-            //We also need to clear parent values from the old values if they exist for garbage collection.
+            //Clear out references for garbage collection
             if (this.__array[index]) {
-              //Clear out references for garbage collection
-                this.__array[index].__parent = null;
-                this.__array[index].__parentKey = null;
+              this.__array[index].__parent = null;
+              this.__array[index].__parentKey = null;
             }
-      
-            newVal.__parent = this;
-            newVal.__parentKey = index;
-          } else {
-            newVal = val;
+
+            if (newVal) {
+              newVal.__parent = this;
+              newVal.__parentKey = index;
+            }
           }
 
           this.__array[index] = newVal;
@@ -211,9 +222,8 @@ export default class TypedArray {
   }
 
   push(item) {
-    let newVal = cast(item, this.type);
-    
-    this.__array.push(newVal);
+    const newItem = this.__cast(item);
+    this.__array.push(newItem);
     this.defineIndexProperty(this.length - 1);
     this.setParents();
     this.__changed(this.length - 1);
@@ -233,6 +243,7 @@ export default class TypedArray {
   }
 
   unshift() {
+    //TODO: this does not yet convert to type.
     let count = this.__array.unshift.apply(this.__array, arguments);
 
     for (let i = 0; i < count; i++) {

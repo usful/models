@@ -50,7 +50,6 @@ function Models({ middleware = [], changeThrottle = 1 }) {
         continue;
       }
 
-      const property = properties[key];
       const descriptor = Object.getOwnPropertyDescriptor(properties, key);
 
       //Property can be a getter/setter, a function, a simple definition,
@@ -74,6 +73,8 @@ function Models({ middleware = [], changeThrottle = 1 }) {
         prop.type = descriptor.value[0];
         prop.isArray = true;
       }
+
+      const property = properties[key];
 
       if (typeof descriptor.value === 'object' && descriptor.value.type) {
         //This is a complex type definition being passed in.
