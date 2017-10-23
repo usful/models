@@ -48,6 +48,20 @@ class TypedArrayIterator {
 export default class TypedArray {
   static changeThrottle = 1;
 
+  __cast(val) {
+    if (!this.isModel) {
+      return val;
+    } else if (this.isModel) {
+      if (val && val.constructor === this.type) {
+        return val;
+      } else if (val && val.constructor!== this.type) {
+        return new this.type(val);
+      } else {
+        return val;
+      }
+    }
+  }
+
   constructor(items, type) {
     this.__array = Array.isArray(items) ? [].concat(items) : [items];
     this.__parent = null;
@@ -61,8 +75,7 @@ export default class TypedArray {
     //Cast any children.
     if (this.isModel) {
       this.__array = this.__array.map(
-        item =>
-          !item || item.constructor === this.type ? item : new this.type(item)
+        item => this.__cast(item)
       );
     }
 
@@ -84,6 +97,8 @@ export default class TypedArray {
           return this.__array[index];
         },
         set: function(val) {
+          const newVal = this.__cast(val);
+
           if (this.type.isModel) {
             //Clear out references for garbage collection
             if (this.__array[index]) {
@@ -91,13 +106,13 @@ export default class TypedArray {
               this.__array[index].__parentKey = null;
             }
 
-            if (val) {
-              val.__parent = this;
-              val.__parentKey = index;
+            if (newVal) {
+              newVal.__parent = this;
+              newVal.__parentKey = index;
             }
           }
 
-          this.__array[index] = val;
+          this.__array[index] = newVal;
           this.__changed(index);
         }
       });
@@ -134,6 +149,10 @@ export default class TypedArray {
     if (this.isModel) {
       this.__json = this.__array.map(item => {
         if (item) {
+          if (!item.__flush) {
+            console.log(item);
+            console.log(this.__parentKey);
+          }
           item.__flush();
           return item.toJSON();
         } else {
@@ -181,7 +200,8 @@ export default class TypedArray {
   }
 
   push(item) {
-    this.__array.push(item);
+    const newItem = this.__cast(item);
+    this.__array.push(newItem);
     this.defineIndexProperty(this.length - 1);
     this.setParents();
     this.__changed(this.length - 1);
@@ -201,6 +221,7 @@ export default class TypedArray {
   }
 
   unshift() {
+    //TODO: this does not yet convert to type.
     let count = this.__array.unshift.apply(this.__array, arguments);
 
     for (let i = 0; i < count; i++) {

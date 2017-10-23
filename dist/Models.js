@@ -513,7 +513,7 @@ function Models(_ref) {
         });
 
         //Flush the data.
-        if (this.__flush()) {
+        if (this.__flush) {
           this.__flush();
         }
       }
@@ -541,7 +541,6 @@ function Models(_ref) {
           return 'continue';
         }
 
-        var property = properties[key];
         var descriptor = Object.getOwnPropertyDescriptor(properties, key);
 
         //Property can be a getter/setter, a function, a simple definition,
@@ -565,6 +564,8 @@ function Models(_ref) {
           prop.type = descriptor.value[0];
           prop.isArray = true;
         }
+
+        var property = properties[key];
 
         if (_typeof(descriptor.value) === 'object' && descriptor.value.type) {
           //This is a complex type definition being passed in.
@@ -592,9 +593,10 @@ function Models(_ref) {
             return this.__data[prop.key];
           },
           set: function set(val) {
+            var newVal = val;
             if (prop.type === Date && val) {
               //TODO: dates could have some more weirdness.
-              val = new Date(val);
+              newVal = new Date(val);
             } else if (prop.type.isModel || prop.isArray) {
 
               // If this type is a model (deep object) or an array, we need to be able to propagate changes later.
@@ -608,24 +610,26 @@ function Models(_ref) {
               if (val !== null && val !== undefined) {
                 if (prop.isArray && !val.isTypedArray) {
                   //This prop type is an array, and you are not setting a TypedArray, we will cast it for you.
-                  val = new _TypedArray2.default(val, prop.type);
+                  newVal = new _TypedArray2.default(val, prop.type);
                 } else if (prop.isArray && val.isTypedArray) {
                   //Clone it, because this is coming from another object?
-                  val = new _TypedArray2.default(val.toJSON(), prop.type);
+                  newVal = new _TypedArray2.default(val.toJSON(), prop.type);
                 } else if (prop.type.isModel && val.constructor !== prop.type) {
                   //This value is a model, but it has not been created as a model yet.
-                  val = new prop.type(val);
+                  newVal = new prop.type(val);
                 } else if (prop.type.isModel && val.constructor === prop.type.model) {
                   //This value is a model, and it is coming from another object? Clone it.
-                  val = new prop.type(val.toJSON());
+                  newVal = new prop.type(val.toJSON());
                 }
 
-                val.__parent = this;
-                val.__parentKey = prop.key;
+                newVal.__parent = this;
+                newVal.__parentKey = prop.key;
               }
+            } else {
+              newVal = val;
             }
 
-            this.__data[prop.key] = val;
+            this.__data[prop.key] = newVal;
 
             if (prop.listen !== false) {
               this.__changed(prop.key);
@@ -816,6 +820,23 @@ var TypedArrayIterator = function () {
 }();
 
 var TypedArray = function () {
+  _createClass(TypedArray, [{
+    key: '__cast',
+    value: function __cast(val) {
+      if (!this.isModel) {
+        return val;
+      } else if (this.isModel) {
+        if (val && val.constructor === this.type) {
+          return val;
+        } else if (val && val.constructor !== this.type) {
+          return new this.type(val);
+        } else {
+          return val;
+        }
+      }
+    }
+  }]);
+
   function TypedArray(items, type) {
     var _this = this;
 
@@ -832,16 +853,18 @@ var TypedArray = function () {
 
     //Cast any children.
     if (this.isModel) {
-
       this.__array = this.__array.map(function (item) {
-        return !item || item.constructor === _this.type ? item : new _this.type(item);
+        return _this.__cast(item);
       });
     }
 
     //Set any initial children.
     this.setParents();
 
-    this.__json = this._toJSON();
+    //Flush the data.
+    if (this.__flush) {
+      this.__flush();
+    }
   }
 
   _createClass(TypedArray, [{
@@ -855,6 +878,8 @@ var TypedArray = function () {
             return this.__array[index];
           },
           set: function set(val) {
+            var newVal = this.__cast(val);
+
             if (this.type.isModel) {
               //Clear out references for garbage collection
               if (this.__array[index]) {
@@ -862,13 +887,13 @@ var TypedArray = function () {
                 this.__array[index].__parentKey = null;
               }
 
-              if (val) {
-                val.__parent = this;
-                val.__parentKey = index;
+              if (newVal) {
+                newVal.__parent = this;
+                newVal.__parentKey = index;
               }
             }
 
-            this.__array[index] = val;
+            this.__array[index] = newVal;
             this.__changed(index);
           }
         });
@@ -899,11 +924,47 @@ var TypedArray = function () {
       }
     }
   }, {
-    key: '__changed',
-    value: function __changed(index) {
-      this.__json = this._toJSON();
+    key: '__flush',
+    value: function __flush() {
+      var _this2 = this;
 
-      this.emit('change', index);
+      if (this.isModel) {
+        this.__json = this.__array.map(function (item) {
+          if (item) {
+            if (!item.__flush) {
+              console.log(item);
+              console.log(_this2.__parentKey);
+            }
+            item.__flush();
+            return item.toJSON();
+          } else {
+            return item;
+          }
+        });
+      } else {
+        this.__json = [].concat(this.__array);
+      }
+
+      this.__dirty = false;
+
+      //if (this.constructor.middleware.includes(eventsMiddleware)) {
+      this.emit('change', this.__json);
+      //}
+    }
+  }, {
+    key: '__changed',
+    value: function __changed(key) {
+      var _this3 = this;
+
+      if (!this.__dirty) {
+        this.__dirty = setTimeout(function () {
+          return _this3.__flush();
+        }, this.constructor.changeThrottle);
+      }
+
+      //if (this.constructor.middleware.includes(eventsMiddleware)) {
+      this.emit(key + 'Changed');
+      //}
 
       if (this.__parent) {
         this.__parent.__changed(this.__parentKey);
@@ -923,7 +984,8 @@ var TypedArray = function () {
   }, {
     key: 'push',
     value: function push(item) {
-      this.__array.push(item);
+      var newItem = this.__cast(item);
+      this.__array.push(newItem);
       this.defineIndexProperty(this.length - 1);
       this.setParents();
       this.__changed(this.length - 1);
@@ -945,6 +1007,7 @@ var TypedArray = function () {
   }, {
     key: 'unshift',
     value: function unshift() {
+      //TODO: this does not yet convert to type.
       var count = this.__array.unshift.apply(this.__array, arguments);
 
       for (var i = 0; i < count; i++) {
@@ -973,7 +1036,7 @@ var TypedArray = function () {
   }, {
     key: 'splice',
     value: function splice() {
-      var _this2 = this;
+      var _this4 = this;
 
       // arguments[0] is the start index
       // arguments[1] is the deleteCount
@@ -981,9 +1044,9 @@ var TypedArray = function () {
       var removed = this.__array.splice.apply(this.__array, arguments);
 
       removed.forEach(function (item) {
-        if (_this2.isModel && item) {
+        if (_this4.isModel && item) {
           item.__parent = null;
-          _this2.__parentKey = null;
+          _this4.__parentKey = null;
         }
       });
 
@@ -1010,19 +1073,6 @@ var TypedArray = function () {
   }, {
     key: 'valueOf',
     value: function valueOf() {
-      return this.__json;
-    }
-  }, {
-    key: '_toJSON',
-    value: function _toJSON() {
-      if (this.isModel) {
-        this.__json = this.__array.map(function (item) {
-          return item ? item.toJSON() : item;
-        });
-        return this.__json;
-      }
-
-      this.__json = [].concat(this.__array);
       return this.__json;
     }
   }, {
@@ -1105,6 +1155,7 @@ var TypedArray = function () {
   return TypedArray;
 }();
 
+TypedArray.changeThrottle = 1;
 exports.default = TypedArray;
 
 
@@ -2036,7 +2087,13 @@ function immutableMiddleware(model) {
     this.constructor.def.props.filter(function (prop) {
       return !prop.virtual && (prop.type.isModel || prop.isArray);
     }).forEach(function (prop) {
-      return data[prop.key] = data[prop.key] ? data[prop.key].toJSON() : data[prop.key];
+      var val = data[prop.key];
+      if (val) {
+        val.__flush();
+        return val.toJSON();
+      } else {
+        return val;
+      }
     });
 
     this.__json = data;
