@@ -784,6 +784,30 @@ var ARRAY_FUNCTIONS = ['sort', 'filter', 'join', 'reverse', 'slice', 'concat'];
 
 var FUNCTIONS = ['forEach', 'includes', 'reduce', 'map', 'find', 'findIndex', 'some', 'indexOf'];
 
+var cast = function cast(val, type) {
+  var newVal = val;
+
+  if (type === Date && val && val.constructor !== Date) {
+    //TODO: dates could have some more weirdness.
+    newVal = new Date(val);
+  } else if (type.isModel) {
+
+    if (val !== null && val !== undefined) {
+      if (val.constructor !== type) {
+        //This value is a model, but it has not been created as a model yet.
+        newVal = new type(val);
+      } else if (type.isModel && val.constructor === type.model) {
+        //This value is a model, and it is coming from another object? Clone it.
+        newVal = new type(val.toJSON());
+      }
+    }
+  } else {
+    newVal = val;
+  }
+
+  return newVal;
+};
+
 var TypedArrayIterator = function () {
   _createClass(TypedArrayIterator, null, [{
     key: 'isTypedArray',
@@ -926,15 +950,9 @@ var TypedArray = function () {
   }, {
     key: '__flush',
     value: function __flush() {
-      var _this2 = this;
-
       if (this.isModel) {
         this.__json = this.__array.map(function (item) {
           if (item) {
-            if (!item.__flush) {
-              console.log(item);
-              console.log(_this2.__parentKey);
-            }
             item.__flush();
             return item.toJSON();
           } else {
@@ -954,11 +972,11 @@ var TypedArray = function () {
   }, {
     key: '__changed',
     value: function __changed(key) {
-      var _this3 = this;
+      var _this2 = this;
 
       if (!this.__dirty) {
         this.__dirty = setTimeout(function () {
-          return _this3.__flush();
+          return _this2.__flush();
         }, this.constructor.changeThrottle);
       }
 
@@ -1036,7 +1054,7 @@ var TypedArray = function () {
   }, {
     key: 'splice',
     value: function splice() {
-      var _this4 = this;
+      var _this3 = this;
 
       // arguments[0] is the start index
       // arguments[1] is the deleteCount
@@ -1044,9 +1062,9 @@ var TypedArray = function () {
       var removed = this.__array.splice.apply(this.__array, arguments);
 
       removed.forEach(function (item) {
-        if (_this4.isModel && item) {
+        if (_this3.isModel && item) {
           item.__parent = null;
-          _this4.__parentKey = null;
+          _this3.__parentKey = null;
         }
       });
 
@@ -2090,9 +2108,9 @@ function immutableMiddleware(model) {
       var val = data[prop.key];
       if (val) {
         val.__flush();
-        return val.toJSON();
+        data[prop.key] = val.toJSON();
       } else {
-        return val;
+        data[prop.key] = val;
       }
     });
 

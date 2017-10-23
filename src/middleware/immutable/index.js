@@ -22,9 +22,9 @@ function immutableMiddleware(model) {
         const val = data[prop.key];
         if (val) {
           val.__flush();
-          return val.toJSON();
+          data[prop.key] = val.toJSON();
         } else {
-          return val;
+          data[prop.key] = val;
         }
       });
 

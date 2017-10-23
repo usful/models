@@ -21,6 +21,32 @@ const FUNCTIONS = [
   'indexOf'
 ];
 
+const cast = (val, type) => {
+  let newVal = val;
+
+  if (type === Date && val && val.constructor !== Date) {
+    //TODO: dates could have some more weirdness.
+    newVal = new Date(val);
+  } else if (type.isModel) {
+
+    if (val !== null && val !== undefined) {
+      if (val.constructor !== type) {
+        //This value is a model, but it has not been created as a model yet.
+        newVal = new type(val);
+      } else if (
+        type.isModel &&
+        val.constructor === type.model
+      ) {
+        //This value is a model, and it is coming from another object? Clone it.
+        newVal = new type(val.toJSON());
+      }
+    }
+  } else {
+    newVal = val;
+  }
+
+  return newVal;
+}
 class TypedArrayIterator {
   static isTypedArray(obj) {
     return !obj ? false : this === obj.constructor;
@@ -149,10 +175,6 @@ export default class TypedArray {
     if (this.isModel) {
       this.__json = this.__array.map(item => {
         if (item) {
-          if (!item.__flush) {
-            console.log(item);
-            console.log(this.__parentKey);
-          }
           item.__flush();
           return item.toJSON();
         } else {
