@@ -61,6 +61,7 @@ function Models({ middleware = [], changeThrottle = 1 }) {
           get: descriptor.get,
           set: descriptor.set
         });
+
         continue;
       }
 

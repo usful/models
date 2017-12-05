@@ -11,6 +11,7 @@ import integer from './validate/integer';
 import required from './validate/required';
 import empty from './validate/empty';
 
+
 export default {
   Regex: RegexValidator,
   MaxLength: MaxLengthValidator,
