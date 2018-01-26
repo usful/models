@@ -1,9 +1,9 @@
 import TypedArray from './TypedArray';
 import Middleware from './middleware';
 
-const primitives = [String, Number, Boolean, Array, Date];
+const primitives = [String, Number, Boolean, Array, Date, Object];
 
-function Models({ middleware = [], changeThrottle = 1 }) {
+function Models({ middleware = [], changeThrottle = 16 }) {
   const definitions = {};
 
   function createModel(properties) {
@@ -68,36 +68,43 @@ function Models({ middleware = [], changeThrottle = 1 }) {
         key: key
       };
 
+      let propDef = descriptor.value;
+
       //Unpack array types. ie. names: [String]
-      if (Array.isArray(descriptor.value)) {
-        prop.type = descriptor.value[0];
+      if (Array.isArray(propDef)) {
+        propDef = propDef[0];
         prop.isArray = true;
       }
 
       const property = properties[key];
 
-      if (typeof descriptor.value === 'object' && descriptor.value.type) {
+      if (typeof propDef === 'object' && propDef.type) {
         //This is a complex type definition being passed in.
         prop = {
           key: key,
           ...property
         };
-      } else if (typeof descriptor.value === 'string') {
+
+        //Unpack array types. ie. names: [String]
+        if (Array.isArray(propDef.type)) {
+          prop.type = propDef.type[0];
+          prop.isArray = true;
+        }
+      } else if (typeof propDef === 'string') {
         //This is a lazy reference to another model being passed in.  Will be dealt with later.
-        prop.type = descriptor.value;
-      } else if (primitives.includes(descriptor.value)) {
+        prop.type = propDef;
+      } else if (primitives.includes(propDef)) {
         //This is a primitive type, defined simply.
-        prop.type = descriptor.value;
-      } else if (
-        typeof descriptor.value === 'function' &&
-        descriptor.value.isModel
-      ) {
+        prop.type = propDef;
+      } else if (typeof propDef === 'function' && propDef.isModel) {
         //This is a model definition that was passed in.
-        prop.type = descriptor.value;
-      } else if (typeof descriptor.value === 'function') {
+        prop.type = propDef;
+      } else if (typeof propDef === 'function' && propDef.isType) {
+        prop.type = propDef;
+        prop.isTypeFunction = true;
+      } else if (typeof propDef === 'function') {
         //Some other kind of function passed in.
-        model.prototype[key] = descriptor.value;
-        continue;
+        model.prototype[key] = propDef;
       }
 
       //Setup the getters and setter for this guy.
@@ -107,42 +114,50 @@ function Models({ middleware = [], changeThrottle = 1 }) {
         },
         set: function(val) {
           let newVal = val;
-          if (prop.type === Date && val) {
-            //TODO: dates could have some more weirdness.
-            newVal = new Date(val);
-          } else if (prop.type.isModel || prop.isArray) {
+          try {
+            if (prop.type === Date && val) {
+              //TODO: dates could have some more weirdness.
+              newVal = new Date(val);
+            } else if (prop.isTypeFunction) {
+              newVal = prop.type.call(this, val);
+            } else if (prop.type.isModel || prop.isArray) {
+              // If this type is a model (deep object) or an array, we need to be able to propagate changes later.
+              //We also need to clear parent values from the old values if they exist for garbage collection.
+              if (this.__data[prop.key]) {
+                //TODO: what about arrays with parentKeys? Do we need to clear all of them, then reset again?
+                this.__data[prop.key].__parent = null;
+                this.__data[prop.key].__parentKey = null;
 
-            // If this type is a model (deep object) or an array, we need to be able to propagate changes later.
-            //We also need to clear parent values from the old values if they exist for garbage collection.
-            if (this.__data[prop.key]) {
-              //TODO: what about arrays with parentKeys? Do we need to clear all of them, then reset again?
-              this.__data[prop.key].__parent = null;
-              this.__data[prop.key].__parentKey = null;
-            }
-
-            if (val !== null && val !== undefined) {
-              if (prop.isArray && !val.isTypedArray) {
-                //This prop type is an array, and you are not setting a TypedArray, we will cast it for you.
-                newVal = new TypedArray(val, prop.type);
-              } else if (prop.isArray && val.isTypedArray) {
-                //Clone it, because this is coming from another object?
-                newVal = new TypedArray(val.toJSON(), prop.type);
-              } else if (prop.type.isModel && val.constructor !== prop.type) {
-                //This value is a model, but it has not been created as a model yet.
-                newVal = new prop.type(val);
-              } else if (
-                prop.type.isModel &&
-                val.constructor === prop.type.model
-              ) {
-                //This value is a model, and it is coming from another object? Clone it.
-                newVal = new prop.type(val.toJSON());
+                //Remove all event listeners if they are expiring.
               }
 
-              newVal.__parent = this;
-              newVal.__parentKey = prop.key;
+              if (val !== null && val !== undefined) {
+                if (prop.isArray && !val.isTypedArray) {
+                  //This prop type is an array, and you are not setting a TypedArray, we will cast it for you.
+                  newVal = new TypedArray(val, prop.type);
+                } else if (prop.isArray && val.isTypedArray) {
+                  //Clone it, because this is coming from another object?
+                  newVal = new TypedArray(val.toJSON(), prop.type);
+                } else if (prop.type.isModel && val.constructor !== prop.type) {
+                  //This value is a model, but it has not been created as a model yet.
+                  newVal = new prop.type(val);
+                } else if (
+                  prop.type.isModel &&
+                  val.constructor === prop.type.model
+                ) {
+                  //This value is a model, and it is coming from another object? Clone it.
+                  newVal = new prop.type(val.toJSON());
+                }
+
+                newVal.__parent = this;
+                newVal.__parentKey = prop.key;
+              }
+            } else {
+              newVal = val;
             }
-          } else {
-            newVal = val;
+          } catch (err) {
+            console.error(err);
+            throw err;
           }
 
           this.__data[prop.key] = newVal;
@@ -231,7 +246,7 @@ export default Models;
 /**
  const Template = new Models.Document('Template', {name: String});
  const template = new Template({name: 'Test'});
- 
+
  template.validate();
  template.addListener('changed', (data) => console.log(data));
  */

@@ -336,11 +336,9 @@ module.exports = EmitterSubscription;
 "use strict";
 /* WEBPACK VAR INJECTION */(function(process) {/**
  * Copyright (c) 2013-present, Facebook, Inc.
- * All rights reserved.
  *
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
  *
  */
 
@@ -478,13 +476,13 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
-var primitives = [String, Number, Boolean, Array, Date];
+var primitives = [String, Number, Boolean, Array, Date, Object];
 
 function Models(_ref) {
   var _ref$middleware = _ref.middleware,
       middleware = _ref$middleware === undefined ? [] : _ref$middleware,
       _ref$changeThrottle = _ref.changeThrottle,
-      changeThrottle = _ref$changeThrottle === undefined ? 1 : _ref$changeThrottle;
+      changeThrottle = _ref$changeThrottle === undefined ? 16 : _ref$changeThrottle;
 
   var definitions = {};
 
@@ -559,32 +557,42 @@ function Models(_ref) {
           key: key
         };
 
+        var propDef = descriptor.value;
+
         //Unpack array types. ie. names: [String]
-        if (Array.isArray(descriptor.value)) {
-          prop.type = descriptor.value[0];
+        if (Array.isArray(propDef)) {
+          propDef = propDef[0];
           prop.isArray = true;
         }
 
         var property = properties[key];
 
-        if (_typeof(descriptor.value) === 'object' && descriptor.value.type) {
+        if ((typeof propDef === 'undefined' ? 'undefined' : _typeof(propDef)) === 'object' && propDef.type) {
           //This is a complex type definition being passed in.
           prop = _extends({
             key: key
           }, property);
-        } else if (typeof descriptor.value === 'string') {
+
+          //Unpack array types. ie. names: [String]
+          if (Array.isArray(propDef.type)) {
+            prop.type = propDef.type[0];
+            prop.isArray = true;
+          }
+        } else if (typeof propDef === 'string') {
           //This is a lazy reference to another model being passed in.  Will be dealt with later.
-          prop.type = descriptor.value;
-        } else if (primitives.includes(descriptor.value)) {
+          prop.type = propDef;
+        } else if (primitives.includes(propDef)) {
           //This is a primitive type, defined simply.
-          prop.type = descriptor.value;
-        } else if (typeof descriptor.value === 'function' && descriptor.value.isModel) {
+          prop.type = propDef;
+        } else if (typeof propDef === 'function' && propDef.isModel) {
           //This is a model definition that was passed in.
-          prop.type = descriptor.value;
-        } else if (typeof descriptor.value === 'function') {
+          prop.type = propDef;
+        } else if (typeof propDef === 'function' && propDef.isType) {
+          prop.type = propDef;
+          prop.isTypeFunction = true;
+        } else if (typeof propDef === 'function') {
           //Some other kind of function passed in.
-          model.prototype[key] = descriptor.value;
-          return 'continue';
+          model.prototype[key] = propDef;
         }
 
         //Setup the getters and setter for this guy.
@@ -594,39 +602,47 @@ function Models(_ref) {
           },
           set: function set(val) {
             var newVal = val;
-            if (prop.type === Date && val) {
-              //TODO: dates could have some more weirdness.
-              newVal = new Date(val);
-            } else if (prop.type.isModel || prop.isArray) {
+            try {
+              if (prop.type === Date && val) {
+                //TODO: dates could have some more weirdness.
+                newVal = new Date(val);
+              } else if (prop.isTypeFunction) {
+                newVal = prop.type.call(this, val);
+              } else if (prop.type.isModel || prop.isArray) {
+                // If this type is a model (deep object) or an array, we need to be able to propagate changes later.
+                //We also need to clear parent values from the old values if they exist for garbage collection.
+                if (this.__data[prop.key]) {
+                  //TODO: what about arrays with parentKeys? Do we need to clear all of them, then reset again?
+                  this.__data[prop.key].__parent = null;
+                  this.__data[prop.key].__parentKey = null;
 
-              // If this type is a model (deep object) or an array, we need to be able to propagate changes later.
-              //We also need to clear parent values from the old values if they exist for garbage collection.
-              if (this.__data[prop.key]) {
-                //TODO: what about arrays with parentKeys? Do we need to clear all of them, then reset again?
-                this.__data[prop.key].__parent = null;
-                this.__data[prop.key].__parentKey = null;
-              }
-
-              if (val !== null && val !== undefined) {
-                if (prop.isArray && !val.isTypedArray) {
-                  //This prop type is an array, and you are not setting a TypedArray, we will cast it for you.
-                  newVal = new _TypedArray2.default(val, prop.type);
-                } else if (prop.isArray && val.isTypedArray) {
-                  //Clone it, because this is coming from another object?
-                  newVal = new _TypedArray2.default(val.toJSON(), prop.type);
-                } else if (prop.type.isModel && val.constructor !== prop.type) {
-                  //This value is a model, but it has not been created as a model yet.
-                  newVal = new prop.type(val);
-                } else if (prop.type.isModel && val.constructor === prop.type.model) {
-                  //This value is a model, and it is coming from another object? Clone it.
-                  newVal = new prop.type(val.toJSON());
+                  //Remove all event listeners if they are expiring.
                 }
 
-                newVal.__parent = this;
-                newVal.__parentKey = prop.key;
+                if (val !== null && val !== undefined) {
+                  if (prop.isArray && !val.isTypedArray) {
+                    //This prop type is an array, and you are not setting a TypedArray, we will cast it for you.
+                    newVal = new _TypedArray2.default(val, prop.type);
+                  } else if (prop.isArray && val.isTypedArray) {
+                    //Clone it, because this is coming from another object?
+                    newVal = new _TypedArray2.default(val.toJSON(), prop.type);
+                  } else if (prop.type.isModel && val.constructor !== prop.type) {
+                    //This value is a model, but it has not been created as a model yet.
+                    newVal = new prop.type(val);
+                  } else if (prop.type.isModel && val.constructor === prop.type.model) {
+                    //This value is a model, and it is coming from another object? Clone it.
+                    newVal = new prop.type(val.toJSON());
+                  }
+
+                  newVal.__parent = this;
+                  newVal.__parentKey = prop.key;
+                }
+              } else {
+                newVal = val;
               }
-            } else {
-              newVal = val;
+            } catch (err) {
+              console.error(err);
+              throw err;
             }
 
             this.__data[prop.key] = newVal;
@@ -751,7 +767,7 @@ exports.default = Models;
 /**
  const Template = new Models.Document('Template', {name: String});
  const template = new Template({name: 'Test'});
- 
+
  template.validate();
  template.addListener('changed', (data) => console.log(data));
  */
@@ -780,9 +796,9 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 var EventEmitter = _fbemitter2.default.EventEmitter;
 
 
-var ARRAY_FUNCTIONS = ['sort', 'filter', 'join', 'reverse', 'slice', 'concat'];
+var ARRAY_FUNCTIONS = ['sort', 'reverse'];
 
-var FUNCTIONS = ['forEach', 'includes', 'reduce', 'map', 'find', 'findIndex', 'some', 'indexOf'];
+var FUNCTIONS = ['join', 'slice', 'concat', 'filter', 'forEach', 'includes', 'reduce', 'map', 'find', 'findIndex', 'some', 'indexOf'];
 
 var cast = function cast(val, type) {
   var newVal = val;
@@ -791,7 +807,6 @@ var cast = function cast(val, type) {
     //TODO: dates could have some more weirdness.
     newVal = new Date(val);
   } else if (type.isModel) {
-
     if (val !== null && val !== undefined) {
       if (val.constructor !== type) {
         //This value is a model, but it has not been created as a model yet.
@@ -801,8 +816,6 @@ var cast = function cast(val, type) {
         newVal = new type(val.toJSON());
       }
     }
-  } else {
-    newVal = val;
   }
 
   return newVal;
@@ -849,14 +862,8 @@ var TypedArray = function () {
     value: function __cast(val) {
       if (!this.isModel) {
         return val;
-      } else if (this.isModel) {
-        if (val && val.constructor === this.type) {
-          return val;
-        } else if (val && val.constructor !== this.type) {
-          return new this.type(val);
-        } else {
-          return val;
-        }
+      } else {
+        return cast(val, this.type);
       }
     }
   }]);
@@ -1173,7 +1180,7 @@ var TypedArray = function () {
   return TypedArray;
 }();
 
-TypedArray.changeThrottle = 1;
+TypedArray.changeThrottle = 16;
 exports.default = TypedArray;
 
 
@@ -1566,11 +1573,9 @@ module.exports = EventSubscriptionVendor;
 
 /**
  * Copyright (c) 2013-present, Facebook, Inc.
- * All rights reserved.
  *
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
  *
  * 
  */
@@ -1620,7 +1625,7 @@ var _validation = __webpack_require__(12);
 
 var _validation2 = _interopRequireDefault(_validation);
 
-var _immutable = __webpack_require__(25);
+var _immutable = __webpack_require__(26);
 
 var _immutable2 = _interopRequireDefault(_immutable);
 
@@ -1657,12 +1662,16 @@ function ValidationMiddleware(model) {
   model.prototype.validate = function () {
     var _this = this;
 
-    var result = {};
+    var result = {
+      props: {},
+      messages: {}
+    };
+
     var props = this.constructor.def.props.filter(function (prop) {
       return prop.validators && prop.validators.length > 0;
     });
 
-    var valid = true;
+    this.__isValid = true;
 
     props.forEach(function (prop) {
       //Required is a special validator, so we will check to see if its in the list.
@@ -1673,13 +1682,14 @@ function ValidationMiddleware(model) {
       var hasValue = _Validation2.default.required.validate.call(_this, _this.__data[prop.key]);
 
       if (isRequired && !hasValue) {
-        valid = false;
-        result[prop.key] = false;
         //If required validation failed, no need to continue.
+        _this.__isValid = false;
+        result.props[prop.key] = false;
+        result.messages[prop.key] = _Validation2.default.required.message;
         return;
       } else if (!isRequired && !hasValue) {
         //If something is not required, and it has no value, it is technically valid.
-        result[prop.key] = true;
+        result.props[prop.key] = true;
         return;
       }
 
@@ -1688,20 +1698,28 @@ function ValidationMiddleware(model) {
           return;
         }
 
-        result[prop.key] = validator.call(_this, _this.__data[prop.key]);
+        result.props[prop.key] = validator.validate.call(_this, _this.__data[prop.key]);
 
-        if (!result[prop.key]) {
-          valid = false;
+        if (!result.props[prop.key]) {
+          _this.__isValid = false;
+          result.messages[prop.key] = validator.message;
         }
       });
     });
 
-    if (!valid) {
+    if (!this.__isValid) {
       throw new _ValidationError2.default(result);
     }
 
-    return true;
+    return this.__isValid;
   };
+
+  //Setup the getters and setter for this guy.
+  Object.defineProperty(model.prototype, 'isValid', {
+    get: function get() {
+      return !!this.__isValid;
+    }
+  });
 }
 
 ValidationMiddleware.validators = _Validation2.default;
@@ -1835,7 +1853,7 @@ exports.default = function (maxLength) {
 
   return {
     validate: function validate(value) {
-      return value && value.length <= maxLength;
+      return !!(value && value.length <= maxLength);
     },
     message: message,
     name: 'MaxLengthValidator',
@@ -1868,7 +1886,7 @@ exports.default = function (minLength) {
 
   return {
     validate: function validate(value) {
-      return value && value.length >= minLength;
+      return !!(value && value.length >= minLength);
     },
     message: message,
     name: 'MinLengthValidator',
@@ -2057,20 +2075,117 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 
-function ValidationError(result) {
-  this.name = 'ValidationError';
-  this.message = 'Validation Failed';
-  this.validation = result;
-  this.stack = new Error().stack;
-}
+var _es6Error = __webpack_require__(25);
 
-ValidationError.prototype = Object.create(Error.prototype);
-ValidationError.prototype.constructor = ValidationError;
+var _es6Error2 = _interopRequireDefault(_es6Error);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var ValidationError = function (_ExtendableError) {
+  _inherits(ValidationError, _ExtendableError);
+
+  function ValidationError(result) {
+    _classCallCheck(this, ValidationError);
+
+    var _this = _possibleConstructorReturn(this, (ValidationError.__proto__ || Object.getPrototypeOf(ValidationError)).call(this));
+
+    _this.validation = result;
+    return _this;
+  }
+
+  return ValidationError;
+}(_es6Error2.default);
 
 exports.default = ValidationError;
 
 /***/ }),
 /* 25 */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+Object.defineProperty(__webpack_exports__, "__esModule", { value: true });
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+function _extendableBuiltin(cls) {
+  function ExtendableBuiltin() {
+    cls.apply(this, arguments);
+  }
+
+  ExtendableBuiltin.prototype = Object.create(cls.prototype, {
+    constructor: {
+      value: cls,
+      enumerable: false,
+      writable: true,
+      configurable: true
+    }
+  });
+
+  if (Object.setPrototypeOf) {
+    Object.setPrototypeOf(ExtendableBuiltin, cls);
+  } else {
+    ExtendableBuiltin.__proto__ = cls;
+  }
+
+  return ExtendableBuiltin;
+}
+
+var ExtendableError = function (_extendableBuiltin2) {
+  _inherits(ExtendableError, _extendableBuiltin2);
+
+  function ExtendableError() {
+    var message = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : '';
+
+    _classCallCheck(this, ExtendableError);
+
+    // extending Error is weird and does not propagate `message`
+    var _this = _possibleConstructorReturn(this, (ExtendableError.__proto__ || Object.getPrototypeOf(ExtendableError)).call(this, message));
+
+    Object.defineProperty(_this, 'message', {
+      configurable: true,
+      enumerable: false,
+      value: message,
+      writable: true
+    });
+
+    Object.defineProperty(_this, 'name', {
+      configurable: true,
+      enumerable: false,
+      value: _this.constructor.name,
+      writable: true
+    });
+
+    if (Error.hasOwnProperty('captureStackTrace')) {
+      Error.captureStackTrace(_this, _this.constructor);
+      return _possibleConstructorReturn(_this);
+    }
+
+    Object.defineProperty(_this, 'stack', {
+      configurable: true,
+      enumerable: false,
+      value: new Error(message).stack,
+      writable: true
+    });
+    return _this;
+  }
+
+  return ExtendableError;
+}(_extendableBuiltin(Error));
+
+/* harmony default export */ __webpack_exports__["default"] = (ExtendableError);
+
+
+/***/ }),
+/* 26 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -2079,8 +2194,6 @@ exports.default = ValidationError;
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-
-var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; };
 
 var _events = __webpack_require__(4);
 
@@ -2100,15 +2213,26 @@ function immutableMiddleware(model) {
   model.prototype.__changed2 = model.prototype.__changed;
 
   model.prototype.__flush = function () {
-    var data = _extends({}, this.__data);
+    var _this = this;
+
+    var data = {};
 
     this.constructor.def.props.filter(function (prop) {
-      return !prop.virtual && (prop.type.isModel || prop.isArray);
+      return !prop.virtual;
     }).forEach(function (prop) {
-      var val = data[prop.key];
-      if (val) {
-        val.__flush();
-        data[prop.key] = val.toJSON();
+      var val = _this.__data[prop.key];
+
+      if (!prop.type) {
+        console.log(model.model, prop);
+      };
+
+      if (prop.type.isModel || prop.isArray) {
+        if (val) {
+          val.__flush();
+          data[prop.key] = val.toJSON();
+        } else {
+          data[prop.key] = val;
+        }
       } else {
         data[prop.key] = val;
       }
@@ -2123,11 +2247,11 @@ function immutableMiddleware(model) {
   };
 
   model.prototype.__changed = function (key) {
-    var _this = this;
+    var _this2 = this;
 
     if (!this.__dirty) {
       this.__dirty = setTimeout(function () {
-        return _this.__flush();
+        return _this2.__flush();
       }, this.constructor.changeThrottle);
     }
 
@@ -2137,6 +2261,13 @@ function immutableMiddleware(model) {
 
     this.__changed2(key);
   };
+
+  //Setup the getters and setter for this guy.
+  Object.defineProperty(model.prototype, 'hasChanges', {
+    get: function get() {
+      return !!this.__dirty;
+    }
+  });
 }
 
 immutableMiddleware.initialize = function (data) {

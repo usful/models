@@ -3,12 +3,16 @@ import ValidationError from './ValidationError';
 
 function ValidationMiddleware (model) {
   model.prototype.validate = function() {
-    const result = {};
+    const result = {
+      props: {},
+      messages: {}
+    };
+
     const props = this.constructor.def.props.filter(
       prop => prop.validators && prop.validators.length > 0
     );
 
-    let valid = true;
+    this.__isValid = true;
 
     props.forEach(prop => {
       //Required is a special validator, so we will check to see if its in the list.
@@ -22,13 +26,14 @@ function ValidationMiddleware (model) {
       );
 
       if (isRequired && !hasValue) {
-        valid = false;
-        result[prop.key] = false;
         //If required validation failed, no need to continue.
+        this.__isValid = false;
+        result.props[prop.key] = false;
+        result.messages[prop.key] = Validation.required.message;
         return;
       } else if (!isRequired && !hasValue) {
         //If something is not required, and it has no value, it is technically valid.
-        result[prop.key] = true;
+        result.props[prop.key] = true;
         return;
       }
 
@@ -37,20 +42,29 @@ function ValidationMiddleware (model) {
           return;
         }
 
-        result[prop.key] = validator.call(this, this.__data[prop.key]);
+        result.props[prop.key] = validator.validate.call(this, this.__data[prop.key]);
 
-        if (!result[prop.key]) {
-          valid = false;
+        if (!result.props[prop.key]) {
+          this.__isValid = false;
+          result.messages[prop.key] = validator.message;
         }
       });
     });
 
-    if (!valid) {
+    if (!this.__isValid) {
       throw new ValidationError(result);
     }
 
-    return true;
+    return this.__isValid;
   };
+
+
+  //Setup the getters and setter for this guy.
+  Object.defineProperty(model.prototype, 'isValid', {
+    get: function() {
+      return !!this.__isValid;
+    }
+  });
 }
 
 ValidationMiddleware.validators = Validation;

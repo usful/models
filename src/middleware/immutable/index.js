@@ -12,21 +12,24 @@ function immutableMiddleware(model) {
   model.prototype.__changed2 = model.prototype.__changed;
 
   model.prototype.__flush = function() {
-    const data = {
-      ...this.__data
-    };
+    const data = {};
 
-    this.constructor.def.props
-      .filter(prop => !prop.virtual && (prop.type.isModel || prop.isArray))
-      .forEach(prop => {
-        const val = data[prop.key];
+    this.constructor.def.props.filter(prop => !prop.virtual).forEach(prop => {
+      const val = this.__data[prop.key];
+
+      if (!prop.type) { console.log(model.model, prop) };
+
+      if (prop.type.isModel || prop.isArray) {
         if (val) {
           val.__flush();
           data[prop.key] = val.toJSON();
         } else {
           data[prop.key] = val;
         }
-      });
+      } else {
+        data[prop.key] = val;
+      }
+    });
 
     this.__json = data;
     this.__dirty = false;
@@ -50,6 +53,13 @@ function immutableMiddleware(model) {
 
     this.__changed2(key);
   };
+
+  //Setup the getters and setter for this guy.
+  Object.defineProperty(model.prototype, 'hasChanges', {
+    get: function() {
+      return !!this.__dirty;
+    }
+  });
 }
 
 immutableMiddleware.initialize = function(data) {

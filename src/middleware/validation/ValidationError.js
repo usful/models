@@ -1,12 +1,9 @@
+import ExtendableError from 'es6-error';
 
-function ValidationError (result) {
-  this.name = 'ValidationError';
-  this.message = 'Validation Failed';
-  this.validation = result;
-  this.stack = (new Error()).stack;
+export default class ValidationError extends ExtendableError {
+  constructor(result) {
+    super();
+
+    this.validation = result;
+  }
 }
-
-ValidationError.prototype = Object.create(Error.prototype);
-ValidationError.prototype.constructor = ValidationError;
-
-export default ValidationError;
