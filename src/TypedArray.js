@@ -1,16 +1,13 @@
 import FBEmitter from 'fbemitter';
 const { EventEmitter } = FBEmitter;
 
-const ARRAY_FUNCTIONS = [
-  'sort',
-  'filter',
-  'join',
-  'reverse',
-  'slice',
-  'concat'
-];
+const ARRAY_FUNCTIONS = ['sort', 'reverse'];
 
 const FUNCTIONS = [
+  'join',
+  'slice',
+  'concat',
+  'filter',
   'forEach',
   'includes',
   'reduce',
@@ -28,25 +25,20 @@ const cast = (val, type) => {
     //TODO: dates could have some more weirdness.
     newVal = new Date(val);
   } else if (type.isModel) {
-
     if (val !== null && val !== undefined) {
       if (val.constructor !== type) {
         //This value is a model, but it has not been created as a model yet.
         newVal = new type(val);
-      } else if (
-        type.isModel &&
-        val.constructor === type.model
-      ) {
+      } else if (type.isModel && val.constructor === type.model) {
         //This value is a model, and it is coming from another object? Clone it.
         newVal = new type(val.toJSON());
       }
     }
-  } else {
-    newVal = val;
   }
 
   return newVal;
-}
+};
+
 class TypedArrayIterator {
   static isTypedArray(obj) {
     return !obj ? false : this === obj.constructor;
@@ -72,19 +64,13 @@ class TypedArrayIterator {
 }
 
 export default class TypedArray {
-  static changeThrottle = 1;
+  static changeThrottle = 16;
 
   __cast(val) {
     if (!this.isModel) {
       return val;
-    } else if (this.isModel) {
-      if (val && val.constructor === this.type) {
-        return val;
-      } else if (val && val.constructor!== this.type) {
-        return new this.type(val);
-      } else {
-        return val;
-      }
+    } else {
+      return cast(val, this.type)
     }
   }
 
@@ -100,9 +86,7 @@ export default class TypedArray {
 
     //Cast any children.
     if (this.isModel) {
-      this.__array = this.__array.map(
-        item => this.__cast(item)
-      );
+      this.__array = this.__array.map(item => this.__cast(item));
     }
 
     //Set any initial children.

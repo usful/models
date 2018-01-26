@@ -7,7 +7,7 @@ export default function(minLength, message = null) {
 
   return {
     validate: function(value) {
-      return value && value.length >= minLength;
+      return !!(value && value.length >= minLength);
     },
     message: message,
     name: 'MinLengthValidator',

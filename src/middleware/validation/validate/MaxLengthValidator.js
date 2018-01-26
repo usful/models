@@ -7,7 +7,7 @@ export default function(maxLength, message = null) {
 
   return {
     validate: function(value) {
-      return value && value.length <= maxLength;
+      return !!(value && value.length <= maxLength);
     },
     message: message,
     name: 'MaxLengthValidator',
