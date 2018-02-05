@@ -151,6 +151,10 @@ function Models({ middleware = [], changeThrottle = 16 }) {
 
                 newVal.__parent = this;
                 newVal.__parentKey = prop.key;
+
+                if (prop.isArray) {
+                  newVal.setParents();
+                }
               }
             } else {
               newVal = val;
