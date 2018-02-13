@@ -35,6 +35,8 @@ function ValidationMiddleware (model) {
         //If something is not required, and it has no value, it is technically valid.
         result.props[prop.key] = true;
         return;
+      } else {
+        result.props[prop.key] = true;
       }
 
       prop.validators.forEach(validator => {

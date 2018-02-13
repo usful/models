@@ -68,44 +68,50 @@ function Models({ middleware = [], changeThrottle = 16 }) {
         key: key
       };
 
-      let propDef = descriptor.value;
-
-      //Unpack array types. ie. names: [String]
-      if (Array.isArray(propDef)) {
-        propDef = propDef[0];
-        prop.isArray = true;
-      }
-
       const property = properties[key];
 
-      if (typeof propDef === 'object' && propDef.type) {
-        //This is a complex type definition being passed in.
-        prop = {
-          key: key,
-          ...property
-        };
-
+      const unpackArray = value => {
         //Unpack array types. ie. names: [String]
-        if (Array.isArray(propDef.type)) {
-          prop.type = propDef.type[0];
+        if (Array.isArray(value)) {
+          prop.type = value[0];
           prop.isArray = true;
+          return prop.type;
         }
-      } else if (typeof propDef === 'string') {
-        //This is a lazy reference to another model being passed in.  Will be dealt with later.
-        prop.type = propDef;
-      } else if (primitives.includes(propDef)) {
-        //This is a primitive type, defined simply.
-        prop.type = propDef;
-      } else if (typeof propDef === 'function' && propDef.isModel) {
-        //This is a model definition that was passed in.
-        prop.type = propDef;
-      } else if (typeof propDef === 'function' && propDef.isType) {
-        prop.type = propDef;
-        prop.isTypeFunction = true;
-      } else if (typeof propDef === 'function') {
-        //Some other kind of function passed in.
-        model.prototype[key] = propDef;
-      }
+
+        return value;
+      };
+
+      const unpackObject = value => {
+        if (typeof value === 'object' && value.type) {
+          //This is a complex type definition being passed in.
+          Object.assign(prop, value);
+
+          return unpackArray(value.type);
+        }
+
+        return value;
+      };
+
+      const unpackType = value => {
+        if (typeof value === 'string') {
+          //This is a lazy reference to another model being passed in.  Will be dealt with later.
+          prop.type = value;
+        } else if (primitives.includes(value)) {
+          //This is a primitive type, defined simply.
+          prop.type = value;
+        } else if (typeof value === 'function' && value.isModel) {
+          //This is a model definition that was passed in.
+          prop.type = value;
+        } else if (typeof value === 'function' && value.isType) {
+          prop.type = value;
+          prop.isTypeFunction = true;
+        } else if (typeof value === 'function') {
+          //Some other kind of function passed in.
+          model.prototype[key] = value;
+        }
+      };
+
+      unpackType(unpackObject(unpackArray(property)));
 
       //Setup the getters and setter for this guy.
       Object.defineProperty(model.prototype, prop.key, {
@@ -114,54 +120,50 @@ function Models({ middleware = [], changeThrottle = 16 }) {
         },
         set: function(val) {
           let newVal = val;
-          try {
-            if (prop.type === Date && val) {
-              //TODO: dates could have some more weirdness.
-              newVal = new Date(val);
-            } else if (prop.isTypeFunction) {
-              newVal = prop.type.call(this, val);
-            } else if (prop.type.isModel || prop.isArray) {
-              // If this type is a model (deep object) or an array, we need to be able to propagate changes later.
-              //We also need to clear parent values from the old values if they exist for garbage collection.
-              if (this.__data[prop.key]) {
-                //TODO: what about arrays with parentKeys? Do we need to clear all of them, then reset again?
-                this.__data[prop.key].__parent = null;
-                this.__data[prop.key].__parentKey = null;
 
-                //Remove all event listeners if they are expiring.
-              }
+          if (prop.type === Date && val) {
+            //TODO: dates could have some more weirdness.
+            newVal = new Date(val);
+          } else if (prop.isTypeFunction) {
+            newVal = prop.type.call(this, val);
+          } else if (prop.type.isModel || prop.isArray) {
+            // If this type is a model (deep object) or an array, we need to be able to propagate changes later.
+            //We also need to clear parent values from the old values if they exist for garbage collection.
+            if (this.__data[prop.key]) {
+              //TODO: what about arrays with parentKeys? Do we need to clear all of them, then reset again?
+              this.__data[prop.key].__parent = null;
+              this.__data[prop.key].__parentKey = null;
 
-              if (val !== null && val !== undefined) {
-                if (prop.isArray && !val.isTypedArray) {
-                  //This prop type is an array, and you are not setting a TypedArray, we will cast it for you.
-                  newVal = new TypedArray(val, prop.type);
-                } else if (prop.isArray && val.isTypedArray) {
-                  //Clone it, because this is coming from another object?
-                  newVal = new TypedArray(val.toJSON(), prop.type);
-                } else if (prop.type.isModel && val.constructor !== prop.type) {
-                  //This value is a model, but it has not been created as a model yet.
-                  newVal = new prop.type(val);
-                } else if (
-                  prop.type.isModel &&
-                  val.constructor === prop.type.model
-                ) {
-                  //This value is a model, and it is coming from another object? Clone it.
-                  newVal = new prop.type(val.toJSON());
-                }
-
-                newVal.__parent = this;
-                newVal.__parentKey = prop.key;
-
-                if (prop.isArray) {
-                  newVal.setParents();
-                }
-              }
-            } else {
-              newVal = val;
+              //Remove all event listeners if they are expiring.
             }
-          } catch (err) {
-            console.error(err);
-            throw err;
+
+            if (val !== null && val !== undefined) {
+              if (prop.isArray && !val.isTypedArray) {
+                //This prop type is an array, and you are not setting a TypedArray, we will cast it for you.
+                newVal = new TypedArray(val, prop.type);
+              } else if (prop.isArray && val.isTypedArray) {
+                //Clone it, because this is coming from another object?
+                newVal = new TypedArray(val.toJSON(), prop.type);
+              } else if (prop.type.isModel && val.constructor !== prop.type) {
+                //This value is a model, but it has not been created as a model yet.
+                newVal = new prop.type(val);
+              } else if (
+                prop.type.isModel &&
+                val.constructor === prop.type.model
+              ) {
+                //This value is a model, and it is coming from another object? Clone it.
+                newVal = new prop.type(val.toJSON());
+              }
+
+              newVal.__parent = this;
+              newVal.__parentKey = prop.key;
+
+              if (prop.isArray) {
+                newVal.setParents();
+              }
+            }
+          } else {
+            newVal = val;
           }
 
           this.__data[prop.key] = newVal;
