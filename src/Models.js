@@ -3,7 +3,7 @@ import Middleware from './middleware';
 
 const primitives = [String, Number, Boolean, Array, Date, Object];
 
-function Models({ middleware = [], changeThrottle = 16 }) {
+function Models({ middleware = [], changeThrottle = 33 }) {
   const definitions = {};
 
   function createModel(properties) {
