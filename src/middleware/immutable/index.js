@@ -41,10 +41,7 @@ function immutableMiddleware(model) {
 
   model.prototype.__changed = function(key) {
     if (!this.__dirty) {
-      this.__dirty = setTimeout(
-        () => this.__flush(),
-        this.constructor.changeThrottle
-      );
+      this.__dirty = setImmediate(() => this.__flush());
     }
 
     if (this.constructor.middleware.includes(eventsMiddleware)) {

@@ -64,13 +64,13 @@ class TypedArrayIterator {
 }
 
 export default class TypedArray {
-  static changeThrottle = 16;
+  static changeThrottle = 0;
 
   __cast(val) {
     if (!this.isModel) {
       return val;
     } else {
-      return cast(val, this.type)
+      return cast(val, this.type);
     }
   }
 
@@ -178,10 +178,7 @@ export default class TypedArray {
 
   __changed(key) {
     if (!this.__dirty) {
-      this.__dirty = setTimeout(
-        () => this.__flush(),
-        this.constructor.changeThrottle
-      );
+      this.__dirty = setImmediate(() => this.__flush());
     }
 
     //if (this.constructor.middleware.includes(eventsMiddleware)) {
