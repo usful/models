@@ -12,6 +12,10 @@ function immutableMiddleware(model) {
   model.prototype.__changed2 = model.prototype.__changed;
 
   model.prototype.__flush = function() {
+    if (this.__dirty === false) {
+      return;
+    }
+
     const data = {};
 
     this.constructor.def.props.filter(prop => !prop.virtual).forEach(prop => {
@@ -36,6 +40,9 @@ function immutableMiddleware(model) {
 
     if (this.constructor.middleware.includes(eventsMiddleware)) {
       this.emit('change', data);
+
+      this.__keysChanged.forEach(key => this.emit(`${key}Changed`));
+      this.__keysChanged = [];
     }
   };
 
@@ -44,8 +51,10 @@ function immutableMiddleware(model) {
       this.__dirty = setImmediate(() => this.__flush());
     }
 
-    if (this.constructor.middleware.includes(eventsMiddleware)) {
-      this.emit(`${key}Changed`);
+    if (!this.__keysChanged) {
+      this.__keysChanged = [key];
+    } else {
+      if (!this.__keysChanged.includes(key)) this.__keysChanged.push(key);
     }
 
     this.__changed2(key);
@@ -62,6 +71,7 @@ function immutableMiddleware(model) {
 immutableMiddleware.initialize = function(data) {
   this.__json = {};
   this.__dirty = false;
+  this.__keysChanged = [];
 };
 
 export default immutableMiddleware;

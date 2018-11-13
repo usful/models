@@ -78,6 +78,7 @@ export default class TypedArray {
     this.__array = Array.isArray(items) ? [].concat(items) : [items];
     this.__parent = null;
     this.__parentKey = null;
+    this.__keysChanged = [];
     this.type = type;
 
     for (let i = 0; i < this.__array.length; i++) {
@@ -171,9 +172,9 @@ export default class TypedArray {
 
     this.__dirty = false;
 
-    //if (this.constructor.middleware.includes(eventsMiddleware)) {
     this.emit('change', this.__json);
-    //}
+    this.__keysChanged.forEach(key => this.emit(`${key}Changed`));
+    this.__keysChanged = [];
   }
 
   __changed(key) {
@@ -181,9 +182,11 @@ export default class TypedArray {
       this.__dirty = setImmediate(() => this.__flush());
     }
 
-    //if (this.constructor.middleware.includes(eventsMiddleware)) {
-    this.emit(`${key}Changed`);
-    //}
+    if (!this.__keysChanged) {
+      this.__keysChanged = [key];
+    } else {
+      if (!this.__keysChanged.includes(key)) this.__keysChanged.push(key);
+    }
 
     if (this.__parent) {
       this.__parent.__changed(this.__parentKey);

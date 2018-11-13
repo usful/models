@@ -248,11 +248,3 @@ Models.middleware = Middleware;
 Models.TypedArray = TypedArray;
 
 export default Models;
-
-/**
- const Template = new Models.Document('Template', {name: String});
- const template = new Template({name: 'Test'});
-
- template.validate();
- template.addListener('changed', (data) => console.log(data));
- */
